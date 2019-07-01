@@ -22,6 +22,7 @@ public class RedisSessionInterceptor implements HandlerInterceptor
     {
         //无论访问的地址是不是正确的，都进行登录验证，登录成功后的访问再进行分发，404的访问自然会进入到错误控制器中
         HttpSession session = request.getSession();
+        System.out.println(session.getId()+"213213213213313");
         if (session.getAttribute("loginUserId") != null)
         {
             try

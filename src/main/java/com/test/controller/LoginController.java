@@ -23,9 +23,7 @@ public class LoginController {
         HttpSession session = request.getSession();
         session.setAttribute("loginUserId", 1);
         redisTemplate.opsForValue().set("loginUser: 1", session.getId());
-        System.out.println("dasdsadasd");
         return "登录成功";
-
     }
 
     @RequestMapping(value = "/getUserInfo")
