@@ -1,6 +1,6 @@
 package com.test.filter;
 
-        import com.alibaba.fastjson.serializer.BeforeFilter;
+import com.alibaba.fastjson.serializer.BeforeFilter;
         import com.test.bean.People;
 
 public class MyBeforeFilter extends BeforeFilter {

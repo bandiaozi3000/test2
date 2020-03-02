@@ -1,6 +1,7 @@
 package com.test.bean;
 
 public class People {
+    private static People people = new People();
     private Integer id;
     private String name;
 
@@ -26,5 +27,17 @@ public class People {
     }
 
     public People() {
+    }
+
+    public static People getInstance(){
+        return people;
+    }
+
+    @Override
+    public String toString() {
+        return "People{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
     }
 }

@@ -10,7 +10,7 @@ public class HystrixService {
     @HystrixCommand(
             fallbackMethod = "onError",
             threadPoolProperties = {  //10个核心线程池,超过20个的队列外的请求被拒绝; 当一切都是正常的时候，线程池一般仅会有1到2个线程激活来提供服务
-                    @HystrixProperty(name = "coreSize", value = "10"),
+                    @HystrixProperty(name = "coreSize", value = "1"),
                     @HystrixProperty(name = "maxQueueSize", value = "100"),
                     @HystrixProperty(name = "queueSizeRejectionThreshold", value = "20")},
             commandProperties = {
@@ -19,17 +19,17 @@ public class HystrixService {
                     @HystrixProperty(name = "circuitBreaker.sleepWindowInMilliseconds", value = "10000") //断路30s后尝试执行, 默认为5s
             })
     public String print(int a) throws Exception {
+        int b = 1/0;
         if(a==1){
             Thread.sleep(5000);
         }else{
             Thread.sleep(2000);
         }
-
         return "success";
-
     }
 
     public String onError(int a) {
+        System.out.println(Thread.currentThread().getName());
         return "error";
     }
 }

@@ -9,9 +9,10 @@ import org.springframework.stereotype.Component;
 public class AsyncDemo {
 
     @Async
-    public void print() throws InterruptedException {
+    public String print() throws InterruptedException {
         async();
         System.out.println("这是一个异步测试方法.........");
+        return "aa";
     }
 
 

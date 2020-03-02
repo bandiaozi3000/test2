@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class MyTestMethod {
-   @Valid
-    public void test() throws NoSuchMethodException {
+    @Valid
+    public void test() {
         System.out.println("这是一个测试方法");
     }
 }

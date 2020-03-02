@@ -1,13 +1,17 @@
 package com.test.bean;
 
 import com.alibaba.fastjson.annotation.JSONField;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.util.Date;
 
 public class DateTest {
-    @JSONField(format="yyyy-MM-dd")
-    private Date date1;
-    private Date date2;
+
+    @JSONField(format = "yyyy-MM-dd ")
+    private Date date1 = new Date();
+
+    @JsonFormat(pattern = "yyyy-MM-dd ",timezone = "GMT+8")
+    private Date date2 = new Date();
 
     public Date getDate2() {
         return date2;
