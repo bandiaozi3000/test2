@@ -5,22 +5,22 @@ import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.PascalNameFilter;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.RateLimiter;
 import com.test.aspect.MyAspect;
 import com.test.bean.*;
+import com.test.controller.ExceptionController;
 import com.test.controller.TestController;
 import com.test.exception.ExceptionWrapper;
 import com.test.filter.MyAfterFilter;
 import com.test.filter.MyValueFilter;
 import com.test.filter.ProperFilter;
 import com.test.method.MyTestMethod;
+import com.test.service.AsyncService;
 import com.test.service.HystrixService;
 import com.test.service.MailService;
 import com.test.service.TestInterface;
 import com.test.service.impl.TestInterfaceImpl;
-import com.test.util.AddressUtils;
-import com.test.util.CollectionUtil;
-import com.test.util.HttpUtil;
-import com.test.util.TemplateUtil;
+import com.test.util.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
@@ -34,12 +34,17 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -53,6 +58,10 @@ import java.nio.charset.Charset;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -229,20 +238,20 @@ public class TestApplicationTests {
 
     @Test
     public void testList() {
-//        ArrayList<Integer> arrayList = new ArrayList<>();
-//        for (int i = 0; i < 20; i++) {
-//            arrayList.add(Integer.valueOf(i));
-//        }
-//
-//        // 复现方法一
-//        Iterator<Integer> iterator = arrayList.iterator();
-//        while (iterator.hasNext()) {
-//            Integer integer = iterator.next();
-//            if (integer.intValue() == 5) {
-////                arrayList.remove(integer);
-//                iterator.remove();
-//            }
-//        }
+        ArrayList<Integer> arrayList = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            arrayList.add(Integer.valueOf(i));
+        }
+
+        // 复现方法一
+        Iterator<Integer> iterator = arrayList.iterator();
+        while (iterator.hasNext()) {
+            Integer integer = iterator.next();
+            if (integer.intValue() == 5) {
+//                arrayList.remove(integer);
+                iterator.remove();
+            }
+        }
 //        System.out.println(arrayList);
 //
 //        // 复现方法二
@@ -253,11 +262,11 @@ public class TestApplicationTests {
 //            }
 //        }
 //    }
-        List<String> list = new ArrayList<>();
-        list.add("1");
-        list.add("2");
-        list.add("3");
-        list.add("4");
+//        List<String> list = new ArrayList<>();
+//        list.add("1");
+//        list.add("2");
+//        list.add("3");
+//        list.add("4");
 //        Iterator<String> iterator = list.iterator();
 //        while (iterator.hasNext()) {
 //            String item = iterator.next();
@@ -267,15 +276,29 @@ public class TestApplicationTests {
 //        }
 //        System.out.println(list);
 //    }
-        for (String item : list) {
-            if ("4".equals(item)) {
-                list.remove(item);
-            }
-        }
+//        for (String item : list) {
+//            if ("4".equals(item)) {
+//                list.remove(item);
+//            }
+//        }
     }
 
     @Test
     public void testListMod() {
+        /**
+         * 当移除1时,不会报java.util.ConcurrentModificationException异常
+         * 原因:异常出现原因有两个参数:modCount和expectedModCount,modCount记录list的修改记录,由于之前有两次add方法
+         * 所以此时modCount为2,expectedModCount初始值和modCount一样,当list再次进行修改操作时,modCount加1,而expectedModCount
+         * 值不变,通过源码可以得知异常原因为:  if (modCount != expectedModCount)
+         *                                       throw new ConcurrentModificationException();
+         * 所以此时理应报错.为什么为1时不报错,为2时报错,因为当移除1时,通过源码可知  hasNext()方法返回为false,源码可知
+         * hasNext()方法判断cursor != size;此时cusor=1,size=1,所以此时方法不会继续向下执行,即不会走到报错那一步.
+         * 拓展:为什么用iterator的remove()方法时就不会报错,因为该方法内部有expectedModCount = modCount该方法,会保持一致.
+         * 结论:1.modCount 会随着调用List.remove方法而自动增减，而expectedModCount则不会变化，就导致modCount != expectedModCount。
+         *　　  2.在删除倒数第二个元素后，cursor=size-1，此时size=size-1，导致hasNext方法认为遍历结束。即只有当移除倒数第二个元素
+         *      时,才满足上述情况,才不会报错.
+         *
+         */
         List<String> list = new ArrayList<>();
         list.add("1");
         list.add("2");
@@ -285,6 +308,30 @@ public class TestApplicationTests {
                 list.remove(item);
             }
         }
+    }
+
+    @Test
+    public void testList3(){
+        String[] str = new String[]{"aa","bb","cc"};
+        List<String> list  = Arrays.asList(str);
+        List<String> list2 = new ArrayList<String>(list);
+        List<String> list3 = new ArrayList<>(str.length);
+        Collections.addAll(list3,str);
+        str[0] ="cc";
+        System.out.println(list.get(0));
+        System.out.println(list2.get(0));
+        System.out.println(list3.get(0));
+    }
+
+    @Test
+    public void testList4(){
+        int[] myArray = { 1, 2, 3 };
+        List myList = Arrays.asList(myArray);
+        System.out.println(myList.size());//1
+        System.out.println(myList.get(0));//数组地址值
+        System.out.println(myList.get(1));//报错：ArrayIndexOutOfBoundsException
+        int [] array=(int[]) myList.get(0);
+        System.out.println(array[0]);//1
     }
 
     @Test
@@ -473,11 +520,18 @@ public class TestApplicationTests {
 
     @Test
     public void testArrays() {
-        String[] a = new String[]{"a", "b", "c"};
-        for (String str : a) {
-            System.out.println(str);
+//        String[] a = new String[]{"a", "b", "c"};
+//        for (String str : a) {
+//            System.out.println(str);
+//        }
+//        System.out.println(Arrays.asList("{a,b,c}"));
+        int[] h = { 1, 2, 3, 3, 3, 3, 6, 6, 6, };
+        int i[] = Arrays.copyOf(h, 30);
+        System.out.println("Arrays.copyOf(h, 30);：");
+        // 输出结果：123333
+        for (int j : i) {
+            System.out.print(j);
         }
-        System.out.println(Arrays.asList("{a,b,c}"));
     }
 
     @Test
@@ -755,6 +809,183 @@ public class TestApplicationTests {
         System.out.println("你好,世界".getBytes(Charset.forName("GB2312")).length);
         System.out.println("你好,世界".getBytes().length);
         System.out.println("你好,世界".length());
+        char a = 'a';
+        System.out.println(a);
+    }
+
+    @Test
+    public void testNull(){
+        System.out.println(org.apache.commons.lang3.StringUtils.isNoneBlank(null));
+    }
+
+    @Test
+    public void testEqual(){
+        User user = new User();
+        User user1 = new User();
+        User user2 = new User();
+        user1 = user;
+        user2 = user;
+        System.out.println(user2.equals(user1));
+    }
+
+    @Test
+    public void testReturn(){
+        System.out.println(MyTestMethod.f(3));
+    }
+
+    @Test
+    public void testFinalPool(){
+        /**
+         * [-128，127] 此范围内可以,超过即为false.原理:常量池原理,等理于
+         * String a = "abc";
+         * String b = "abc;
+         * 此时a==b,因为常量池为同一个.超出上述范围,即常量池不适用
+         */
+        Integer i11 = 128;
+        Integer i22 = 128;
+        System.out.println(i11 == i22);// 输出 false
+        System.out.println(i11 .equals(i22) );// 输出 true
+    }
+
+    @Test
+    public void testController() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ExceptionController()).build();
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders.get("/test1").accept(MediaType.APPLICATION_JSON)).andReturn();
+
+    }
+
+    @Test
+    public void testRandom(){
+        //随机数的生成是根据seed种子来计算的,每次生成随机数的时候会重新计算seed的值,所以值会不同.
+        //计算seed和计算随机值的函数是固定的,也就是说当random的seed值一样的时候,计算出的值也一样
+        Random random = new Random(5);
+//        Random random1 = new Random(5);
+//        System.out.println(random.nextInt(5));
+//        System.out.println(random1.nextInt(5));
+        for(int i =0;i<10;i++){
+            //因为seed值固定,所以生成的随机值一样
+//            random.setSeed(10);
+            System.out.print(random.nextInt(100)+" ");
+        }
+        System.out.println();
+        random.setSeed(5);
+        for(int i =0;i<10;i++){
+            //因为seed值固定,所以生成的随机值一样
+//            random.setSeed(10);
+            System.out.print(random.nextInt(100)+" ");
+        }
+    }
+
+    @Test
+    public void testArr(){
+        String[] a ;
+        String[] b = new String[]{"a","b"};
+        a=b;
+        b=new String[]{"a"};
+        System.out.println(Arrays.toString(a));
+        System.out.println(Arrays.toString(b));
+    }
+
+    public  void putValueToMap(Map map,List list,String key){
+        map.put(key,list);
+
+    }
+
+    @Test
+    public void testMap2(){
+        List<String> list = new ArrayList<>();
+        list.add("a");
+        list.add("b");
+        HashMap<String,List> hashMap = new HashMap<>();
+//        hashMap.put("key1",list);
+//        hashMap.put("key2",list);
+//        System.out.println(hashMap.get("key1").add("c"));
+//        System.out.println(hashMap.get("key2").toString());
+        putValueToMap(hashMap,list,"key1");
+        putValueToMap(hashMap,list,"key2");
+        System.out.println(hashMap.get("key1").add("c"));
+        System.out.println(hashMap.get("key2"));
+    }
+
+    @Test
+    public void testThreadRandom(){
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        Random random1 = new Random();
+        for(int i=0;i<10;i++){
+            executorService.execute(()->{
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+               System.out.println(Thread.currentThread().getName()+"local---"+random.nextInt(10));
+//                System.out.println(Thread.currentThread().getName()+"random---"+random1.nextInt(10));
+            });
+        }
+        executorService.shutdown();
+    }
+
+    @Test
+    public void testConcurrent() throws InterruptedException {
+        RateLimiter limiter =  RateLimiter.create(5);
+        for(int i = 0;i<7;i++){
+        limiter.acquire(1);
+//            TimeUnit.SECONDS.sleep(1);
+        }
+    }
+
+    @Test
+    public void testUser(){
+        User user = new User();
+        user.setName("  aaaaa");
+        User user1 = new User();
+        user1.setName(user.getName());
+        System.out.println(user1);
+    }
+
+    @Test
+    public void testStatic2(){
+        ThreadLocalRandom threadLocalRandom1 = ThreadLocalRandom.current();
+        ThreadLocalRandom threadLocalRandom2 = ThreadLocalRandom.current();
+        System.out.println(threadLocalRandom1.equals(threadLocalRandom2));
+        User user = new User();
+        User user1 = new User();
+        System.out.println(user.equals(user1));
+    }
+
+    @Test
+    public void testCopyOnWrite(){
+        CopyOnWriteArrayList<String> arrayList = new CopyOnWriteArrayList<>();
+        arrayList.add("a");
+        arrayList.add("b");
+        Iterator<String> iterable = arrayList.iterator();
+        arrayList.add("c");
+        arrayList.add("d");
+        while(iterable.hasNext()){
+            System.out.println(iterable.next());
+        }
+        System.out.println(String.valueOf(System.currentTimeMillis()).length());
+        System.out.println(System.currentTimeMillis());
+    }
+
+    @Test
+    public void testLock() throws InterruptedException {
+        ReentrantLock reentrantLock = new ReentrantLock();
+        Condition condition = reentrantLock.newCondition();
+        reentrantLock.lock();
+        System.out.println("a");
+        condition.await();
+        reentrantLock.unlock();
+    }
+
+
+    @Test
+    public void testSpringBean(){
+        ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
+        AsyncService asyncService = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
+        AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
+        System.out.println(asyncService==asyncService1);
     }
 
 }

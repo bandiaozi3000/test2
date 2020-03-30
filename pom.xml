@@ -67,15 +67,15 @@
             <version>1.2.4</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.springframework.boot</groupId>-->
+            <!--<artifactId>spring-boot-starter-data-redis</artifactId>-->
+        <!--</dependency>-->
 
-        <dependency>
-            <groupId>org.springframework.session</groupId>
-            <artifactId>spring-session-data-redis</artifactId>
-        </dependency>
+        <!--<dependency>-->
+            <!--<groupId>org.springframework.session</groupId>-->
+            <!--<artifactId>spring-session-data-redis</artifactId>-->
+        <!--</dependency>-->
 
 
         <dependency>
@@ -145,6 +145,21 @@
             <version>3.10-FINAL</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.4</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>net.sourceforge.nekohtml</groupId>
+            <artifactId>nekohtml</artifactId>
+        </dependency>
 
     </dependencies>
 
