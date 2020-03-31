@@ -984,12 +984,32 @@ public class TestApplicationTests {
      * Spring加载Bean过程:
      *    SpringApplication.run(TestApplication.class, args)->SrpingApplication.refreshContext(ConfigurableApplicationContext context)->
      *    AbstractApplicationContext.invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory)
-     *    作用:将容器中的Bean加载到容器,但是没有实例化,保存形式,存储在一个HasnMap中,key是bean名称,value是对应的BeanDefinition(可以看做是bean的元信息,包含bean本身描述信息)
+     *    作用:将容器中的Bean加载到容器,但是没有实例化,保存形式,存储在一个HasnMap中,key是bean名称,value是对应的BeanDefinition
+     *    (可以看做是bean的元信息,包含bean本身描述信息)
      *    ->finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory)
      *    作用:初始化实例,将其方法展开
      *    ->beanFactory.preInstantiateSingletons(); 初始化实例,方法内部是一个do循环,实例完beanFactory里面的所有beanName
      *    ->DefaultListableBeanFactory.getBean(beanName);初始化实例,此步执行完毕后,加载完当前beanName的实例
-     *    至此为止:Spring加载bean实例完毕
+     *    至此为止:Spring加载bean实例完毕,实例也放在一个hashMap中,key是beanName,value是bean实例
+     *    可以调试至:SpringApplication第166行,查看context对象,可以看到里面有一个beanFactory属性,打开该属性可以看到里面有三个属性
+     *    1.beanDefinitionMap:该map就是容器bean的注册map,key是beanName,value是BeanDefinition
+     *    2.beanDefinitionNames:beanName列表
+     *    3.singletonObjects:bean实例map,key是beanName,value是bean实例
+     *    可以看出和上面流程一致.
+     *
+     *    BeanDefinition注册到beanFactory的beanDefinitionMap具体步骤:
+     *    AbstractApplicationContext.this.invokeBeanFactoryPostProcessors(263)
+     *    ->PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(73)
+     *    ->PostProcessorRegistrationDelegate.postProcessor.postProcessBeanDefinitionRegistry(242)
+     *    ->ConfigurationClassPostProcessor.this.processConfigBeanDefinitions(133)
+     *    ->ConfigurationClassPostProcessor.parser.parse(193)
+     *    ->ConfigurationClassParser.this.parse(105)
+     *    ->ConfigurationClassParser.this.doProcessConfigurationClass(159)
+     *    ->ConfigurationClassParser.this.componentScanParser.parse(186)
+     *    ->ComponentScanAnnotationParser.scanner.doScan(126)
+     *    ->ClassPathBeanDefinitionScanner.this.registerBeanDefinition(131)
+     *    ->DefaultListableBeanFactory.this.beanDefinitionMap.put(620)
+     *    到此步为止,就讲bean的beanDefinition放到了beanDefinitionMap中.该过程有一个循环,会将所有bean都注册完毕后才会推出.
      *
      *    bean实例化具体步骤:
      *      beanFactory.preInstantiateSingletons()->DefaultListableBeanFactory.getBean(beanName)->AbstractBeanFactory.doGetBean()
@@ -998,7 +1018,6 @@ public class TestApplicationTests {
      *      ->AbstractAutowireCapableBeanFactory.getInstantiationStrategy().instantiate(768)
      *      ->SimpleInstantiationStrategy.instantiate(31)->BeanUtils.instantiateClass(SimpleInstantiationStrategy(61))
      *      进入到最后方法可知,实例是通过反射创建的.大功告成
-     *
      *
      */
     @Test
