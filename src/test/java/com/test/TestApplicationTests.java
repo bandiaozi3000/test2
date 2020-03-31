@@ -980,6 +980,27 @@ public class TestApplicationTests {
     }
 
 
+    /**
+     * Spring加载Bean过程:
+     *    SpringApplication.run(TestApplication.class, args)->SrpingApplication.refreshContext(ConfigurableApplicationContext context)->
+     *    AbstractApplicationContext.invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory)
+     *    作用:将容器中的Bean加载到容器,但是没有实例化,保存形式,存储在一个HasnMap中,key是bean名称,value是对应的BeanDefinition(可以看做是bean的元信息,包含bean本身描述信息)
+     *    ->finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory)
+     *    作用:初始化实例,将其方法展开
+     *    ->beanFactory.preInstantiateSingletons(); 初始化实例,方法内部是一个do循环,实例完beanFactory里面的所有beanName
+     *    ->DefaultListableBeanFactory.getBean(beanName);初始化实例,此步执行完毕后,加载完当前beanName的实例
+     *    至此为止:Spring加载bean实例完毕
+     *
+     *    bean实例化具体步骤:
+     *      beanFactory.preInstantiateSingletons()->DefaultListableBeanFactory.getBean(beanName)->AbstractBeanFactory.doGetBean()
+     *      ->AbstractBeanFactory.doGetBean(169)->AbstractAutowireCapableBeanFactory.doCreateBean(306)->AbstractAutowireCapableBeanFactory.createBeanInstance(321)
+     *      ->AbstractAutowireCapableBeanFactory.instantiateBean(734)
+     *      ->AbstractAutowireCapableBeanFactory.getInstantiationStrategy().instantiate(768)
+     *      ->SimpleInstantiationStrategy.instantiate(31)->BeanUtils.instantiateClass(SimpleInstantiationStrategy(61))
+     *      进入到最后方法可知,实例是通过反射创建的.大功告成
+     *
+     *
+     */
     @Test
     public void testSpringBean(){
         ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
