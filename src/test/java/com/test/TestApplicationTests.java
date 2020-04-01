@@ -58,10 +58,7 @@ import java.nio.charset.Charset;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -686,14 +683,6 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testMap(){
-        Map<String,Object> map = new HashMap<>();
-        map.put("11","23w123");
-        String str = (String)map.get("11");
-        System.out.println(str);
-    }
-
-    @Test
     public void testRest(){
         testController.test();
     }
@@ -720,7 +709,6 @@ public class TestApplicationTests {
 
     @Test
     public void testMaifei3(){
-
         String url = "http://test.wopeixun.cn:8096/guangFaInf/pushMemberInfo";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -886,7 +874,7 @@ public class TestApplicationTests {
         System.out.println(Arrays.toString(b));
     }
 
-    public  void putValueToMap(Map map,List list,String key){
+    public void putValueToMap(Map map,List list,String key){
         map.put(key,list);
 
     }
@@ -979,7 +967,6 @@ public class TestApplicationTests {
         reentrantLock.unlock();
     }
 
-
     /**
      * Spring加载Bean过程:
      *    SpringApplication.run(TestApplication.class, args)->SrpingApplication.refreshContext(ConfigurableApplicationContext context)->
@@ -1027,5 +1014,53 @@ public class TestApplicationTests {
         AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
         System.out.println(asyncService==asyncService1);
     }
+
+    @Test
+    public void testIterator(){
+        HashMap hashMap = new HashMap();
+        hashMap.put("a","a");
+        hashMap.put("b","b");
+        hashMap.put("c","c");
+        hashMap.put("d","d");
+        Iterator iterator = hashMap.keySet().iterator();
+        while(iterator.hasNext()){
+            System.out.println("aaa");
+            iterator.next();
+        }
+    }
+
+    /**
+     * 多线程下造成死循环的原因:
+     *     map里面的数据达到一定量时会进行扩容,除了扩充数组大小,还会对map里面的数据进行rehash,这个过程要遍历map里所有数据,所以这样会造成很大的性能损耗
+     *  ,所以尽量避免数组扩容
+     *  多线程扩容死循环原因:
+     *     rehash原理:
+     *     do {
+     *     Entry<K,V> next = e.next; // <--假设线程一执行到这里就被调度挂起了
+     *     int i = indexFor(e.hash, newCapacity);
+     *     e.next = newTable[i]; //这两步采用了头插法,将当前节点元素的next指向当前数组头,并把该节点元素赋值给数组头,即新加的元素会添加到数组里,并将元素next指向上一个数组头
+     *     newTable[i] = e
+     *     e = next;
+     *     } while (e != null);
+     *  原因就在于这两步,多线程情况下节点顺序会变乱,可能会导致两个节点的next互相引用,这样调用get()方法时会不停的循环链表,造成死循环的结果.
+     *
+     */
+    @Test
+    public void testMap() throws InterruptedException {
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        HashMap hashMap = new HashMap();
+        for(int i=0;i<100000;i++){
+           final int a = i;
+            executorService.execute(()->{
+                System.out.println(Thread.currentThread());
+                hashMap.put(a,a);
+            });
+        }
+      Thread.sleep(10000);
+        for(int i=0;i<100000;i++){
+            System.out.println(hashMap.get(i));
+        }
+    }
+
 
 }
