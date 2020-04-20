@@ -1,10 +1,13 @@
 package com.test;
 
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.extra.qrcode.QrCodeUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.PascalNameFilter;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.rholder.retry.*;
 import com.google.common.util.concurrent.RateLimiter;
 import com.test.aspect.MyAspect;
 import com.test.bean.*;
@@ -57,6 +60,10 @@ import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Condition;
@@ -584,11 +591,11 @@ public class TestApplicationTests {
         PrivateKey privateKey = keyPair.getPrivate();
         //3.用私钥加密数据
         Cipher cipher = Cipher.getInstance("rsa");
-        cipher.init(Cipher.ENCRYPT_MODE, privateKey, new SecureRandom());
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey, new SecureRandom());
         byte[] cipherData = cipher.doFinal(text.getBytes());
         System.out.println(new String(cipherData));//打印密文: ���i�,�2���WC1��b�m�S���&�����5�����WFB�����HJ��HN��]�;Pq�A������}G�
         //4.使用公钥解密
-        cipher.init(Cipher.DECRYPT_MODE, publicKey, new SecureRandom());
+        cipher.init(Cipher.DECRYPT_MODE, privateKey, new SecureRandom());
         byte[] decodeData = cipher.doFinal(cipherData);
         System.out.println(new String(decodeData)); //解密数据：123456，解密成功
         //5.通过私钥和密文对传输的数据生成数字签名
@@ -828,11 +835,28 @@ public class TestApplicationTests {
          * String a = "abc";
          * String b = "abc;
          * 此时a==b,因为常量池为同一个.超出上述范围,即常量池不适用
+         * 对于对象引用类型：==比较的是对象的内存地址。对于基本数据类型：==比较的是值。
+         * 如果整型字面量的值在-128到127之间，那么自动装箱时不会new新的Integer对象，而是直接引用常量池中的Integer对象，超过范围 a1==b1的结果是false
          */
         Integer i11 = 128;
         Integer i22 = 128;
         System.out.println(i11 == i22);// 输出 false
         System.out.println(i11 .equals(i22) );// 输出 true
+
+        Integer a = new Integer(3);
+        Integer b = 3;  // 将3自动装箱成Integer类型
+        int c = 3;
+        System.out.println(a == b); // false 两个引用没有引用同一对象
+        System.out.println(a == c); // true a自动拆箱成int类型再和c比较
+        System.out.println(b == c); // true
+
+        Integer a1 = 128;
+        Integer b1 = 128;
+        System.out.println(a1 == b1); // false
+
+        Integer a2 = 127;
+        Integer b2 = 127;
+        System.out.println(a2 == b2); // true
     }
 
     @Test
@@ -1030,6 +1054,7 @@ public class TestApplicationTests {
     }
 
     /**
+     * 仅限于jdk1.7.1.8修复该问题.
      * 多线程下造成死循环的原因:
      *     map里面的数据达到一定量时会进行扩容,除了扩充数组大小,还会对map里面的数据进行rehash,这个过程要遍历map里所有数据,所以这样会造成很大的性能损耗
      *  ,所以尽量避免数组扩容
@@ -1043,6 +1068,9 @@ public class TestApplicationTests {
      *     e = next;
      *     } while (e != null);
      *  原因就在于这两步,多线程情况下节点顺序会变乱,可能会导致两个节点的next互相引用,这样调用get()方法时会不停的循环链表,造成死循环的结果.
+     *  如果扩容前相邻的两个Entry在扩容后还是分配到相同的table位置上，就会出现死循环的BUG **** 这句话是重点!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     *  理解:因为这样的话两个人的先后顺序会发生颠倒,例如 7,3 本来是7->3,颠倒后3->7,这样就会前后引用.
+     *  此外多线程情况下还会造成put非null元素后，get操作得到null值。原理和上述情况下一样.都是在头插法这两步里出现了问题.
      *
      */
     @Test
@@ -1062,5 +1090,178 @@ public class TestApplicationTests {
         }
     }
 
+    /**
+     * Date和LocalDateTime比较:LocalDateTime功能多,此外这两个对象不存在线程安全不安全,而是格式化工具类SimpleDateFormat
+     * 和DateTimeFormatter是否安全
+     * SimpleDateFormat线程不安全原因:核心是一个Calander对象,多个线程共享一个实例.所以多线程情况下Calander实例对象会被改变,最终造成各种异常产生.
+     * 线程不安全代码:
+     *    format方法:   calendar.setTime(date);  //应该不会报错,但是会造成返回时间不是正确时间,
+     *    parse方法:    parsedDate = calb.addYear(100).establish(calendar).getTime();
+     *    establish()方法:
+     *    Calender establish(Calendat cal){
+     *       ....
+     *       //重置日期对象cal的属性值
+     *       cal.clear();
+     *       //使用calb中的属性设置cal
+     *       ....
+     *       //返回设置好的cal对象
+     *       return cal;
+     *    }
+     *    这三步不是原子性的,所以多线程情况下cal的属性值会不正确,这样就会造成异常.
+     *
+     *
+     *
+     */
+    @Test
+    public void testDataTime(){
+        ExecutorService executorService = Executors.newFixedThreadPool(5);
+        SimpleDateFormat simpleDateFormat= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime localDateTime = LocalDateTime.now();
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String dateStr = "2020-04-02 09:28:14";
+        for(int i=0;i<100;i++){
+            Date date = new Date();
+            executorService.execute(()->{
+                System.out.println(simpleDateFormat.format(date));
+                try {
+                    System.out.println(simpleDateFormat.parse(dateStr));
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+                System.out.println(localDateTime.format(dateTimeFormatter));
+                System.out.println(dateTimeFormatter.parse(dateStr));
+            });
+        }
+    }
+
+    @Test
+    public void testRetry(){
+        Callable<String> callable = new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+//                Random random = new Random();
+//                int sleepTime = random.nextInt(4000);
+                Thread.sleep(5000);
+                return "SUCCESS";
+            }
+        };
+        Retryer<String> retryer = RetryerBuilder.<String>newBuilder()
+                .retryIfExceptionOfType(IOException.class)
+                .retryIfRuntimeException()
+                .withWaitStrategy(WaitStrategies.fixedWait(3,TimeUnit.SECONDS))
+                .withStopStrategy(StopStrategies.stopAfterAttempt(2))
+                .withAttemptTimeLimiter(AttemptTimeLimiters.fixedTimeLimit(3,TimeUnit.SECONDS))
+                .withRetryListener(new RetryListener() {
+                    @Override
+                    public <V> void onRetry(Attempt<V> attempt) {
+                        System.out.println("当前任务重试次数:"+attempt.getAttemptNumber());
+                       if(attempt.hasException()){
+                           System.out.println("任务执行异常,原因:"+attempt.getExceptionCause());
+                       }
+                    }
+                })
+                .build();
+        try {
+            String result = retryer.call(callable);
+            System.out.println(result);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    @Test
+    public void test2DImg(){
+        QrCodeUtil.generate("https://www.baidu.com/", 300, 300, FileUtil.file("d:/qrcode.jpg"));
+    }
+
+    @Test
+    public void testGuava(){
+        Optional<Integer> possible = Optional.of(null);
+    }
+
+    @Test
+    public void testCatch(){
+        class Annoyance extends Exception {
+        }
+        class Sneeze extends Annoyance {
+        }
+        try {
+                try {
+                    throw new Sneeze();
+                } catch ( Annoyance a ) {
+                    System.out.println("Caught Annoyance");
+                    throw a;
+                }
+            } catch ( Sneeze s ) {
+                System.out.println("Caught Sneeze");
+                return ;
+            } finally {
+                System.out.println("Hello World!");
+            }
+    }
+
+    @Test
+    public void testCallable() {
+        class MyCallable implements Callable<Integer> {
+
+            @Override
+            public Integer call() throws InterruptedException {
+                Thread.sleep(5000);
+                System.out.println(Thread.currentThread().getName() + " call()方法执行中...");
+                return 1;
+            }
+        }
+        FutureTask<Integer> futureTask = new FutureTask<Integer>(new MyCallable());
+        Thread thread = new Thread(futureTask);
+        thread.start();
+
+        try {
+            //会阻塞当前线程
+            System.out.println("返回结果 " + futureTask.get());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        System.out.println(Thread.currentThread().getName() + " main()方法执行完成");
+    }
+
+    @Test
+    public void testValueTransmit(){
+        /**
+         * 下面再总结一下Java中方法参数的使用情况
+         * 一个方法不能修改一个基本数据类型的参数（即数值型或布尔型》
+         * 一个方法可以改变一个对象参数的状态。
+         * 一个方法不能让对象参数引用一个新的对象。
+         */
+        class Student{
+            String name;
+
+            public Student(String name) {
+                this.name = name;
+            }
+
+            public String getName() {
+                return name;
+            }
+
+            public void setName(String name) {
+                this.name = name;
+            }
+
+            public void swap(Student x, Student y) {
+                Student temp = x;
+                x = y;
+                y = temp;
+                System.out.println("x:" + x.getName());
+                System.out.println("y:" + y.getName());
+            }
+        }
+            Student s1 = new Student("小张");
+            Student s2 = new Student("小李");
+            s1.swap(s1, s2);
+            System.out.println("s1:" + s1.getName());
+            System.out.println("s2:" + s2.getName());
+        }
 
 }

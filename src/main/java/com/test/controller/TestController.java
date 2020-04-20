@@ -1,5 +1,7 @@
 package com.test.controller;
 
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.extra.qrcode.QrCodeUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.test.aop.ServiceLimit;
@@ -87,6 +89,15 @@ public class TestController {
         System.out.println(IPUtils.getIpAddr()+"--------"+count.getAndIncrement());
         return "aaaaa";
     }
+
+    @RequestMapping(value = "/2DImg")
+    @ResponseBody
+    public void test2DImg(){
+        QrCodeUtil.generate("http://www.baidu.com", 300, 300, FileUtil.file("d:/baidu.jpg"));
+        QrCodeUtil.generate("http://192.168.0.27:8082/2DImg", 300, 300, FileUtil.file("d:/2d.jpg"));
+        System.out.println("测试二维码生成");
+    }
+
 
 
 
