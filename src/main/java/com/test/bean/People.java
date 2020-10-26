@@ -1,9 +1,14 @@
 package com.test.bean;
 
-public class People {
+public class People implements Cloneable{
     private static People people = new People();
     private Integer id;
     private String name;
+
+    @Override
+    public Object clone() throws CloneNotSupportedException {
+        return super.clone();
+    }
 
     public Integer getId() {
         return id;

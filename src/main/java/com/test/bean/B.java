@@ -8,9 +8,7 @@ package com.test.bean;
  */
 class A{
     static int i=0;
-    static {
-        System.out.println("静态代码块A");
-    }
+
     public A(){
         System.out.println("构造方法A");
     }
@@ -23,6 +21,9 @@ class A{
         i++;
         System.out.println("在类A中静态变量i="+i);
     }
+    static {
+        System.out.println("静态代码块A");
+    }
 }
 public class B extends A{
  
@@ -30,6 +31,12 @@ public class B extends A{
     static {
         System.out.println("静态代码块B");
     }
+
+    static {
+        i++;
+        System.out.println("在类B中静态变量i="+i);
+    }
+
     public B(){
         System.out.println("构造方法B");
     }
@@ -43,9 +50,6 @@ public class B extends A{
         new B();
     }
  
-    static {
-        i++;
-        System.out.println("在类B中静态变量i="+i);
-    }
+
  
 }

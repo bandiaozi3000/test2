@@ -6,14 +6,17 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.PascalNameFilter;
 import com.alibaba.fastjson.serializer.SerializerFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alipay.api.AlipayApiException;
+import com.alipay.api.internal.util.WebUtils;
 import com.github.rholder.retry.*;
 import com.google.common.util.concurrent.RateLimiter;
 import com.test.aspect.MyAspect;
 import com.test.bean.*;
+import com.test.bean.vo.FetchCouponVO;
 import com.test.controller.ExceptionController;
 import com.test.controller.TestController;
 import com.test.exception.ExceptionWrapper;
+import com.test.exception.ExceptionWrapper2;
 import com.test.filter.MyAfterFilter;
 import com.test.filter.MyValueFilter;
 import com.test.filter.ProperFilter;
@@ -23,7 +26,10 @@ import com.test.service.HystrixService;
 import com.test.service.MailService;
 import com.test.service.TestInterface;
 import com.test.service.impl.TestInterfaceImpl;
-import com.test.util.*;
+import com.test.util.AddressUtils;
+import com.test.util.CollectionUtil;
+import com.test.util.SpringContextUtil;
+import com.test.util.TemplateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
@@ -51,9 +57,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.annotation.Resource;
 import javax.crypto.*;
 import javax.crypto.spec.DESKeySpec;
 import java.io.*;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -89,18 +97,13 @@ public class TestApplicationTests {
     private TestInterface testInterface;
 
     @Autowired
-    private RestTemplate restTemplate;
-
-    @Autowired
-    private HttpUtil httpUtil;
-
-    @Autowired
     private TestController testController;
 
     @Autowired
     private MailService mailService;
 
-
+    @Resource
+    private ApplicationContext applicationContext;
 
 
     /**
@@ -152,20 +155,20 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testAsync(){
+    public void testAsync() {
         System.out.println(testInterface.print("asa"));
     }
 
 
     @Test
     public void test121() throws IOException {
-        double num = 110;
-        System.out.println(String.format("%.2f", num));
-        People people = new People();
-        people.setId(21);
-        people.setName("张三三as大打算打算");
-        ObjectMapper objectMapper = new ObjectMapper();
-        System.out.println(objectMapper.readValue(objectMapper.writeValueAsString(people),People.class));
+        Integer num = 1;
+        System.out.println(String.format("%02d", num));
+//        People people = new People();
+//        people.setId(21);
+//        people.setName("张三三as大打算打算");
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        System.out.println(objectMapper.readValue(objectMapper.writeValueAsString(people),People.class));
 
     }
 
@@ -312,29 +315,30 @@ public class TestApplicationTests {
                 list.remove(item);
             }
         }
+
     }
 
     @Test
-    public void testList3(){
-        String[] str = new String[]{"aa","bb","cc"};
-        List<String> list  = Arrays.asList(str);
+    public void testList3() {
+        String[] str = new String[]{"aa", "bb", "cc"};
+        List<String> list = Arrays.asList(str);
         List<String> list2 = new ArrayList<String>(list);
         List<String> list3 = new ArrayList<>(str.length);
-        Collections.addAll(list3,str);
-        str[0] ="cc";
+        Collections.addAll(list3, str);
+        str[0] = "cc";
         System.out.println(list.get(0));
         System.out.println(list2.get(0));
         System.out.println(list3.get(0));
     }
 
     @Test
-    public void testList4(){
-        int[] myArray = { 1, 2, 3 };
+    public void testList4() {
+        int[] myArray = {1, 2, 3};
         List myList = Arrays.asList(myArray);
         System.out.println(myList.size());//1
         System.out.println(myList.get(0));//数组地址值
         System.out.println(myList.get(1));//报错：ArrayIndexOutOfBoundsException
-        int [] array=(int[]) myList.get(0);
+        int[] array = (int[]) myList.get(0);
         System.out.println(array[0]);//1
     }
 
@@ -406,11 +410,23 @@ public class TestApplicationTests {
 //        Integer b = new Integer(3);
 //        System.out.println(a == b);//false
 //        System.out.println(a.equals(b));//true
-        float a = 1.0f - 0.9f;
-        float b = 0.9f - 0.8f;
-        System.out.println(a);// 0.100000024
-        System.out.println(b);// 0.099999964
-        System.out.println(a == b);// false
+//        float a = 1.0f - 0.9f;
+//        float b = 0.9f - 0.8f;
+//        System.out.println(a);// 0.100000024
+//        System.out.println(b);// 0.099999964
+//        System.out.println(a == b);// false
+//        BigDecimal bigDecimal = new BigDecimal("0.1");
+//        BigDecimal bigDecimal1 = BigDecimal.valueOf(0.1);
+//        int[] myArray = { 1, 2, 3 };
+//        List myList = Arrays.asList(myArray);
+//        System.out.println(myList.size());//1
+//        System.out.println(myList.get(0));//数组地址值
+        String[] s = new String[]{
+                "dog", "lazy", "a", "over", "jumps", "fox", "brown", "quick", "A"
+        };
+        List<String> list = Arrays.asList(s);
+        Collections.reverse(list);
+        s = list.toArray(new String[0]);//没有指定类型的话会报错
     }
 
     @Test
@@ -529,7 +545,7 @@ public class TestApplicationTests {
 //            System.out.println(str);
 //        }
 //        System.out.println(Arrays.asList("{a,b,c}"));
-        int[] h = { 1, 2, 3, 3, 3, 3, 6, 6, 6, };
+        int[] h = {1, 2, 3, 3, 3, 3, 6, 6, 6,};
         int i[] = Arrays.copyOf(h, 30);
         System.out.println("Arrays.copyOf(h, 30);：");
         // 输出结果：123333
@@ -624,24 +640,24 @@ public class TestApplicationTests {
     public void testUrl() throws UnsupportedEncodingException {
         String userInfo = String.format(("JWT for %s :%s"), "zhangsan", "aaa");
         System.out.println(userInfo);
-        System.out.println(URLEncoder.encode(userInfo,"UTF-8"));
+        System.out.println(URLEncoder.encode(userInfo, "UTF-8"));
     }
 
     @Test
     public void testThread() throws InterruptedException {
-        Lock lock  = new ReentrantLock();
+        Lock lock = new ReentrantLock();
         Condition condition = lock.newCondition();
         Thread thread = new Thread(new Runnable() {
             @Override
             public void run() {
                 lock.lock();
-                try{
+                try {
                     System.out.println("begin await....");
                     condition.await();
                     System.out.println("end await");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                }finally {
+                } finally {
                     lock.unlock();
                 }
             }
@@ -649,21 +665,21 @@ public class TestApplicationTests {
         thread.start();
         thread.join();
         lock.lock();
-        try{
+        try {
             System.out.println("begin signal....");
             condition.signal();
             System.out.println("end signal");
         } catch (Exception e) {
             e.printStackTrace();
-        }finally {
+        } finally {
             lock.unlock();
         }
     }
 
     @Test
-    public void testString(){
-        String str= "2020年，愿您所求皆如愿，所行化坦途，多喜乐，常安宁。尾号{1}祝上，并送您{2}张卡券，请注意查收~";
-        System.out.println(TemplateUtil.tpl(str,"123","123"));
+    public void testString() {
+        String str = "2020年，愿您所求皆如愿，所行化坦途，多喜乐，常安宁。尾号{1}祝上，并送您{2}张卡券，请注意查收~";
+        System.out.println(TemplateUtil.tpl(str, "123", "123"));
     }
 
     @Test
@@ -684,28 +700,24 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testJoin(){
-        String[] str = new String[]{"1","2","3"};
-        System.out.println(StringUtils.join(str,"|"));
+    public void testJoin() {
+        String[] str = new String[]{"1", "2", "3"};
+        System.out.println(StringUtils.join(str, "|"));
     }
 
-    @Test
-    public void testRest(){
-        testController.test();
-    }
 
     @Test
-    public void testMaifei(){
+    public void testMaifei() {
         Map<String, String> maps = new HashMap<>();
         maps.put("cusid", "14800200");
         maps.put("key", "835b4d90531949d6973e67c5984fada9");
         String searchUrl = "http://test.wopeixun.cn:8096/guangFaInf/authentication";
-        String str = new RestTemplate().getForObject(searchUrl+"?cusid={cusid}&key={key}", String.class, maps);
+        String str = new RestTemplate().getForObject(searchUrl + "?cusid={cusid}&key={key}", String.class, maps);
         System.out.println(str);
     }
 
     @Test
-    public void testMaifei2(){
+    public void testMaifei2() {
         String searchUrl = "http://test.wopeixun.cn:8096/guangFaInf/authentication";
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(searchUrl)
                 .queryParam("cusid", "14800200")
@@ -715,35 +727,35 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testMaifei3(){
+    public void testMaifei3() {
         String url = "http://test.wopeixun.cn:8096/guangFaInf/pushMemberInfo";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.add("token","b6954696adedab06bd0e3fb96c4b2d4e");
+        headers.add("token", "b6954696adedab06bd0e3fb96c4b2d4e");
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
                 .queryParam("name", "14800200")
                 .queryParam("mobile", "14800200")
                 .queryParam("couponCode", "835b4d90531949d6973e67c5984fada9");
         HttpEntity<String> request = new HttpEntity<>(headers);
-        String response = new RestTemplate().postForObject(builder.build().encode().toUri(), request , String.class );
+        String response = new RestTemplate().postForObject(builder.build().encode().toUri(), request, String.class);
         System.out.println(response);
     }
 
     @Test
-    public void testMail() throws UnsupportedEncodingException{
+    public void testMail() throws UnsupportedEncodingException {
         mailService.sendAttachmentsMail(System.getProperty("user.dir") + "/2020-02-23麦菲退款申请订单数据.xlsx", "lm.sun@i-vpoints.com", "麦斐退款订单数据", "详情见附件");
     }
 
     @Test
-    public void testIO(){
+    public void testIO() {
         XSSFWorkbook workbook = new XSSFWorkbook();
         XSSFSheet xssfSheet = workbook.createSheet("麦斐退款订单");
         //自定义列标题
-        String[] headers = {"姓名","联系电话","串码","订单号"};
+        String[] headers = {"姓名", "联系电话", "串码", "订单号"};
         XSSFRow row = xssfSheet.createRow(0);
         FileOutputStream fos = null;
         try {
-            String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(),0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
+            String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(), 0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
             fos = new FileOutputStream(new File(System.getProperty("user.dir") + "/" + subjectName + ".xlsx"));
             workbook.write(fos);
             fos.flush();
@@ -761,41 +773,41 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testFileDelete(){
-        String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(),0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
-        new File(System.getProperty("user.dir") + "/"+subjectName+".xlsx").delete();
+    public void testFileDelete() {
+        String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(), 0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
+        new File(System.getProperty("user.dir") + "/" + subjectName + ".xlsx").delete();
     }
 
     @Test
-    public void testSub(){
+    public void testSub() {
         String str = "卡号:1web914586109835;卡密:88995903";
-        int index1 =str.indexOf(":");
+        int index1 = str.indexOf(":");
         int index2 = str.indexOf(";");
         int index3 = str.lastIndexOf(":");
-        String coupon = str.substring(index1+1,index2);
-        String couponPass = str.substring(index3+1);
+        String coupon = str.substring(index1 + 1, index2);
+        String couponPass = str.substring(index3 + 1);
         System.out.println(coupon);
         System.out.println(couponPass);
     }
 
     @Test
-    public void testSub2(){
+    public void testSub2() {
         String decrypt = "卡号:1web914586109835;卡密:88995903";
         String decryptPass = null;
         //判断卡号卡密是否在一块,若在一块,以"卡号"打头
-        if(decrypt.startsWith("卡号")){
-            int startIndex= decrypt.indexOf(":");
-            int endIndex =  decrypt.indexOf(";");
+        if (decrypt.startsWith("卡号")) {
+            int startIndex = decrypt.indexOf(":");
+            int endIndex = decrypt.indexOf(";");
             int startIndex2 = decrypt.lastIndexOf(":");
-            decryptPass  =decrypt.substring(startIndex2+1);
-            decrypt =decrypt.substring(startIndex+1,endIndex);
+            decryptPass = decrypt.substring(startIndex2 + 1);
+            decrypt = decrypt.substring(startIndex + 1, endIndex);
         }
         System.out.println(decrypt);
         System.out.println(decryptPass);
     }
 
     @Test
-    public void testByte(){
+    public void testByte() {
         System.out.println("hello,server1".getBytes(Charset.forName("utf-8")).length);
         System.out.println("hello,server1".length());
         System.out.println("你好,世界".getBytes(Charset.forName("utf-8")).length);
@@ -809,12 +821,12 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testNull(){
+    public void testNull() {
         System.out.println(org.apache.commons.lang3.StringUtils.isNoneBlank(null));
     }
 
     @Test
-    public void testEqual(){
+    public void testEqual() {
         User user = new User();
         User user1 = new User();
         User user2 = new User();
@@ -824,12 +836,12 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testReturn(){
+    public void testReturn() {
         System.out.println(MyTestMethod.f(3));
     }
 
     @Test
-    public void testFinalPool(){
+    public void testFinalPool() {
         /**
          * [-128，127] 此范围内可以,超过即为false.原理:常量池原理,等理于
          * String a = "abc";
@@ -841,7 +853,7 @@ public class TestApplicationTests {
         Integer i11 = 128;
         Integer i22 = 128;
         System.out.println(i11 == i22);// 输出 false
-        System.out.println(i11 .equals(i22) );// 输出 true
+        System.out.println(i11.equals(i22));// 输出 true
 
         Integer a = new Integer(3);
         Integer b = 3;  // 将3自动装箱成Integer类型
@@ -867,88 +879,83 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testRandom(){
+    public void testRandom() {
         //随机数的生成是根据seed种子来计算的,每次生成随机数的时候会重新计算seed的值,所以值会不同.
         //计算seed和计算随机值的函数是固定的,也就是说当random的seed值一样的时候,计算出的值也一样
         Random random = new Random(5);
 //        Random random1 = new Random(5);
 //        System.out.println(random.nextInt(5));
 //        System.out.println(random1.nextInt(5));
-        for(int i =0;i<10;i++){
+        for (int i = 0; i < 10; i++) {
             //因为seed值固定,所以生成的随机值一样
 //            random.setSeed(10);
-            System.out.print(random.nextInt(100)+" ");
+            System.out.print(random.nextInt(100) + " ");
         }
         System.out.println();
         random.setSeed(5);
-        for(int i =0;i<10;i++){
+        for (int i = 0; i < 10; i++) {
             //因为seed值固定,所以生成的随机值一样
 //            random.setSeed(10);
-            System.out.print(random.nextInt(100)+" ");
+            System.out.print(random.nextInt(100) + " ");
         }
     }
 
     @Test
-    public void testArr(){
-        String[] a ;
-        String[] b = new String[]{"a","b"};
-        a=b;
-        b=new String[]{"a"};
+    public void testArr() {
+        String[] a;
+        String[] b = new String[]{"a", "b"};
+        a = b;
+        b = new String[]{"a"};
         System.out.println(Arrays.toString(a));
         System.out.println(Arrays.toString(b));
     }
 
-    public void putValueToMap(Map map,List list,String key){
-        map.put(key,list);
+    public void putValueToMap(Map map, List list, String key) {
+        map.put(key, list);
 
     }
 
     @Test
-    public void testMap2(){
+    public void testMap2() {
         List<String> list = new ArrayList<>();
         list.add("a");
         list.add("b");
-        HashMap<String,List> hashMap = new HashMap<>();
+        HashMap<String, List> hashMap = new HashMap<>();
 //        hashMap.put("key1",list);
 //        hashMap.put("key2",list);
 //        System.out.println(hashMap.get("key1").add("c"));
 //        System.out.println(hashMap.get("key2").toString());
-        putValueToMap(hashMap,list,"key1");
-        putValueToMap(hashMap,list,"key2");
+        putValueToMap(hashMap, list, "key1");
+        putValueToMap(hashMap, list, "key2");
         System.out.println(hashMap.get("key1").add("c"));
         System.out.println(hashMap.get("key2"));
     }
 
     @Test
-    public void testThreadRandom(){
+    public void testThreadRandom() {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
         ThreadLocalRandom random = ThreadLocalRandom.current();
         Random random1 = new Random();
-        for(int i=0;i<10;i++){
-            executorService.execute(()->{
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-               System.out.println(Thread.currentThread().getName()+"local---"+random.nextInt(10));
+        for (int i = 0; i < 10; i++) {
+            executorService.execute(() -> {
+                System.out.println(Thread.currentThread().getName() + "local---" + random.nextInt(10));
 //                System.out.println(Thread.currentThread().getName()+"random---"+random1.nextInt(10));
             });
         }
-        executorService.shutdown();
+//        executorService.shutdown();
     }
 
     @Test
     public void testConcurrent() throws InterruptedException {
-        RateLimiter limiter =  RateLimiter.create(5);
-        for(int i = 0;i<7;i++){
-        limiter.acquire(1);
+        RateLimiter limiter = RateLimiter.create(5);
+        for (int i = 0; i < 7; i++) {
+            limiter.acquire(1);
 //            TimeUnit.SECONDS.sleep(1);
         }
     }
 
     @Test
-    public void testUser(){
+    public void testUser() {
         User user = new User();
         user.setName("  aaaaa");
         User user1 = new User();
@@ -957,7 +964,7 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testStatic2(){
+    public void testStatic2() {
         ThreadLocalRandom threadLocalRandom1 = ThreadLocalRandom.current();
         ThreadLocalRandom threadLocalRandom2 = ThreadLocalRandom.current();
         System.out.println(threadLocalRandom1.equals(threadLocalRandom2));
@@ -967,14 +974,14 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testCopyOnWrite(){
+    public void testCopyOnWrite() {
         CopyOnWriteArrayList<String> arrayList = new CopyOnWriteArrayList<>();
         arrayList.add("a");
         arrayList.add("b");
         Iterator<String> iterable = arrayList.iterator();
         arrayList.add("c");
         arrayList.add("d");
-        while(iterable.hasNext()){
+        while (iterable.hasNext()) {
             System.out.println(iterable.next());
         }
         System.out.println(String.valueOf(System.currentTimeMillis()).length());
@@ -993,61 +1000,61 @@ public class TestApplicationTests {
 
     /**
      * Spring加载Bean过程:
-     *    SpringApplication.run(TestApplication.class, args)->SrpingApplication.refreshContext(ConfigurableApplicationContext context)->
-     *    AbstractApplicationContext.invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory)
-     *    作用:将容器中的Bean加载到容器,但是没有实例化,保存形式,存储在一个HasnMap中,key是bean名称,value是对应的BeanDefinition
-     *    (可以看做是bean的元信息,包含bean本身描述信息)
-     *    ->finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory)
-     *    作用:初始化实例,将其方法展开
-     *    ->beanFactory.preInstantiateSingletons(); 初始化实例,方法内部是一个do循环,实例完beanFactory里面的所有beanName
-     *    ->DefaultListableBeanFactory.getBean(beanName);初始化实例,此步执行完毕后,加载完当前beanName的实例
-     *    至此为止:Spring加载bean实例完毕,实例也放在一个hashMap中,key是beanName,value是bean实例
-     *    可以调试至:SpringApplication第166行,查看context对象,可以看到里面有一个beanFactory属性,打开该属性可以看到里面有三个属性
-     *    1.beanDefinitionMap:该map就是容器bean的注册map,key是beanName,value是BeanDefinition
-     *    2.beanDefinitionNames:beanName列表
-     *    3.singletonObjects:bean实例map,key是beanName,value是bean实例
-     *    可以看出和上面流程一致.
-     *
-     *    BeanDefinition注册到beanFactory的beanDefinitionMap具体步骤:
-     *    AbstractApplicationContext.this.invokeBeanFactoryPostProcessors(263)
-     *    ->PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(73)
-     *    ->PostProcessorRegistrationDelegate.postProcessor.postProcessBeanDefinitionRegistry(242)
-     *    ->ConfigurationClassPostProcessor.this.processConfigBeanDefinitions(133)
-     *    ->ConfigurationClassPostProcessor.parser.parse(193)
-     *    ->ConfigurationClassParser.this.parse(105)
-     *    ->ConfigurationClassParser.this.doProcessConfigurationClass(159)
-     *    ->ConfigurationClassParser.this.componentScanParser.parse(186)
-     *    ->ComponentScanAnnotationParser.scanner.doScan(126)
-     *    ->ClassPathBeanDefinitionScanner.this.registerBeanDefinition(131)
-     *    ->DefaultListableBeanFactory.this.beanDefinitionMap.put(620)
-     *    到此步为止,就讲bean的beanDefinition放到了beanDefinitionMap中.该过程有一个循环,会将所有bean都注册完毕后才会推出.
-     *
-     *    bean实例化具体步骤:
-     *      beanFactory.preInstantiateSingletons()->DefaultListableBeanFactory.getBean(beanName)->AbstractBeanFactory.doGetBean()
-     *      ->AbstractBeanFactory.doGetBean(169)->AbstractAutowireCapableBeanFactory.doCreateBean(306)->AbstractAutowireCapableBeanFactory.createBeanInstance(321)
-     *      ->AbstractAutowireCapableBeanFactory.instantiateBean(734)
-     *      ->AbstractAutowireCapableBeanFactory.getInstantiationStrategy().instantiate(768)
-     *      ->SimpleInstantiationStrategy.instantiate(31)->BeanUtils.instantiateClass(SimpleInstantiationStrategy(61))
-     *      进入到最后方法可知,实例是通过反射创建的.大功告成
-     *
+     * SpringApplication.run(TestApplication.class, args)->SrpingApplication.refreshContext(ConfigurableApplicationContext context)->
+     * AbstractApplicationContext.invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory)
+     * 作用:将容器中的Bean加载到容器,但是没有实例化,保存形式,存储在一个HasnMap中,key是bean名称,value是对应的BeanDefinition
+     * (可以看做是bean的元信息,包含bean本身描述信息)
+     * ->finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory)
+     * 作用:初始化实例,将其方法展开
+     * ->beanFactory.preInstantiateSingletons(); 初始化实例,方法内部是一个do循环,实例完beanFactory里面的所有beanName
+     * ->DefaultListableBeanFactory.getBean(beanName);初始化实例,此步执行完毕后,加载完当前beanName的实例
+     * 至此为止:Spring加载bean实例完毕,实例也放在一个hashMap中,key是beanName,value是bean实例
+     * 可以调试至:SpringApplication第166行,查看context对象,可以看到里面有一个beanFactory属性,打开该属性可以看到里面有三个属性
+     * 1.beanDefinitionMap:该map就是容器bean的注册map,key是beanName,value是BeanDefinition
+     * 2.beanDefinitionNames:beanName列表
+     * 3.singletonObjects:bean实例map,key是beanName,value是bean实例
+     * 可以看出和上面流程一致.
+     * <p>
+     * BeanDefinition注册到beanFactory的beanDefinitionMap具体步骤:
+     * AbstractApplicationContext.this.invokeBeanFactoryPostProcessors(263)
+     * ->PostProcessorRegistrationDelegate.invokeBeanDefinitionRegistryPostProcessors(73)
+     * ->PostProcessorRegistrationDelegate.postProcessor.postProcessBeanDefinitionRegistry(242)
+     * ->ConfigurationClassPostProcessor.this.processConfigBeanDefinitions(133)
+     * ->ConfigurationClassPostProcessor.parser.parse(193)
+     * ->ConfigurationClassParser.this.parse(105)
+     * ->ConfigurationClassParser.this.doProcessConfigurationClass(159)
+     * ->ConfigurationClassParser.this.componentScanParser.parse(186)
+     * ->ComponentScanAnnotationParser.scanner.doScan(126)
+     * ->ClassPathBeanDefinitionScanner.this.registerBeanDefinition(131)
+     * ->DefaultListableBeanFactory.this.beanDefinitionMap.put(620)
+     * 到此步为止,就讲bean的beanDefinition放到了beanDefinitionMap中.该过程有一个循环,会将所有bean都注册完毕后才会推出.
+     * <p>
+     * bean实例化具体步骤:
+     * beanFactory.preInstantiateSingletons()->DefaultListableBeanFactory.getBean(beanName)->AbstractBeanFactory.doGetBean()
+     * ->AbstractBeanFactory.doGetBean(169)->AbstractAutowireCapableBeanFactory.doCreateBean(306)->AbstractAutowireCapableBeanFactory.createBeanInstance(321)
+     * ->AbstractAutowireCapableBeanFactory.instantiateBean(734)
+     * ->AbstractAutowireCapableBeanFactory.getInstantiationStrategy().instantiate(768)
+     * ->SimpleInstantiationStrategy.instantiate(31)->BeanUtils.instantiateClass(SimpleInstantiationStrategy(61))
+     * 进入到最后方法可知,实例是通过反射创建的.大功告成
      */
     @Test
-    public void testSpringBean(){
+    public void testSpringBean() {
         ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
         AsyncService asyncService = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
         AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
-        System.out.println(asyncService==asyncService1);
+        System.out.println(asyncService == asyncService1);
+
     }
 
     @Test
-    public void testIterator(){
+    public void testIterator() {
         HashMap hashMap = new HashMap();
-        hashMap.put("a","a");
-        hashMap.put("b","b");
-        hashMap.put("c","c");
-        hashMap.put("d","d");
+        hashMap.put("a", "a");
+        hashMap.put("b", "b");
+        hashMap.put("c", "c");
+        hashMap.put("d", "d");
         Iterator iterator = hashMap.keySet().iterator();
-        while(iterator.hasNext()){
+        while (iterator.hasNext()) {
             System.out.println("aaa");
             iterator.next();
         }
@@ -1056,36 +1063,35 @@ public class TestApplicationTests {
     /**
      * 仅限于jdk1.7.1.8修复该问题.
      * 多线程下造成死循环的原因:
-     *     map里面的数据达到一定量时会进行扩容,除了扩充数组大小,还会对map里面的数据进行rehash,这个过程要遍历map里所有数据,所以这样会造成很大的性能损耗
-     *  ,所以尽量避免数组扩容
-     *  多线程扩容死循环原因:
-     *     rehash原理:
-     *     do {
-     *     Entry<K,V> next = e.next; // <--假设线程一执行到这里就被调度挂起了
-     *     int i = indexFor(e.hash, newCapacity);
-     *     e.next = newTable[i]; //这两步采用了头插法,将当前节点元素的next指向当前数组头,并把该节点元素赋值给数组头,即新加的元素会添加到数组里,并将元素next指向上一个数组头
-     *     newTable[i] = e
-     *     e = next;
-     *     } while (e != null);
-     *  原因就在于这两步,多线程情况下节点顺序会变乱,可能会导致两个节点的next互相引用,这样调用get()方法时会不停的循环链表,造成死循环的结果.
-     *  如果扩容前相邻的两个Entry在扩容后还是分配到相同的table位置上，就会出现死循环的BUG **** 这句话是重点!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     *  理解:因为这样的话两个人的先后顺序会发生颠倒,例如 7,3 本来是7->3,颠倒后3->7,这样就会前后引用.
-     *  此外多线程情况下还会造成put非null元素后，get操作得到null值。原理和上述情况下一样.都是在头插法这两步里出现了问题.
-     *
+     * map里面的数据达到一定量时会进行扩容,除了扩充数组大小,还会对map里面的数据进行rehash,这个过程要遍历map里所有数据,所以这样会造成很大的性能损耗
+     * ,所以尽量避免数组扩容
+     * 多线程扩容死循环原因:
+     * rehash原理:
+     * do {
+     * Entry<K,V> next = e.next; // <--假设线程一执行到这里就被调度挂起了
+     * int i = indexFor(e.hash, newCapacity);
+     * e.next = newTable[i]; //这两步采用了头插法,将当前节点元素的next指向当前数组头,并把该节点元素赋值给数组头,即新加的元素会添加到数组里,并将元素next指向上一个数组头
+     * newTable[i] = e
+     * e = next;
+     * } while (e != null);
+     * 原因就在于这两步,多线程情况下节点顺序会变乱,可能会导致两个节点的next互相引用,这样调用get()方法时会不停的循环链表,造成死循环的结果.
+     * 如果扩容前相邻的两个Entry在扩容后还是分配到相同的table位置上，就会出现死循环的BUG **** 这句话是重点!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     * 理解:因为这样的话两个人的先后顺序会发生颠倒,例如 7,3 本来是7->3,颠倒后3->7,这样就会前后引用.
+     * 此外多线程情况下还会造成put非null元素后，get操作得到null值。原理和上述情况下一样.都是在头插法这两步里出现了问题.
      */
     @Test
     public void testMap() throws InterruptedException {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
         HashMap hashMap = new HashMap();
-        for(int i=0;i<100000;i++){
-           final int a = i;
-            executorService.execute(()->{
+        for (int i = 0; i < 100000; i++) {
+            final int a = i;
+            executorService.execute(() -> {
                 System.out.println(Thread.currentThread());
-                hashMap.put(a,a);
+                hashMap.put(a, a);
             });
         }
-      Thread.sleep(10000);
-        for(int i=0;i<100000;i++){
+        Thread.sleep(10000);
+        for (int i = 0; i < 100000; i++) {
             System.out.println(hashMap.get(i));
         }
     }
@@ -1095,33 +1101,30 @@ public class TestApplicationTests {
      * 和DateTimeFormatter是否安全
      * SimpleDateFormat线程不安全原因:核心是一个Calander对象,多个线程共享一个实例.所以多线程情况下Calander实例对象会被改变,最终造成各种异常产生.
      * 线程不安全代码:
-     *    format方法:   calendar.setTime(date);  //应该不会报错,但是会造成返回时间不是正确时间,
-     *    parse方法:    parsedDate = calb.addYear(100).establish(calendar).getTime();
-     *    establish()方法:
-     *    Calender establish(Calendat cal){
-     *       ....
-     *       //重置日期对象cal的属性值
-     *       cal.clear();
-     *       //使用calb中的属性设置cal
-     *       ....
-     *       //返回设置好的cal对象
-     *       return cal;
-     *    }
-     *    这三步不是原子性的,所以多线程情况下cal的属性值会不正确,这样就会造成异常.
-     *
-     *
-     *
+     * format方法:   calendar.setTime(date);  //应该不会报错,但是会造成返回时间不是正确时间,
+     * parse方法:    parsedDate = calb.addYear(100).establish(calendar).getTime();
+     * establish()方法:
+     * Calender establish(Calendat cal){
+     * ....
+     * //重置日期对象cal的属性值
+     * cal.clear();
+     * //使用calb中的属性设置cal
+     * ....
+     * //返回设置好的cal对象
+     * return cal;
+     * }
+     * 这三步不是原子性的,所以多线程情况下cal的属性值会不正确,这样就会造成异常.
      */
     @Test
-    public void testDataTime(){
+    public void testDataTime() {
         ExecutorService executorService = Executors.newFixedThreadPool(5);
-        SimpleDateFormat simpleDateFormat= new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         LocalDateTime localDateTime = LocalDateTime.now();
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String dateStr = "2020-04-02 09:28:14";
-        for(int i=0;i<100;i++){
+        for (int i = 0; i < 100; i++) {
             Date date = new Date();
-            executorService.execute(()->{
+            executorService.execute(() -> {
                 System.out.println(simpleDateFormat.format(date));
                 try {
                     System.out.println(simpleDateFormat.parse(dateStr));
@@ -1135,7 +1138,7 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testRetry(){
+    public void testRetry() {
         Callable<String> callable = new Callable<String>() {
             @Override
             public String call() throws Exception {
@@ -1148,16 +1151,16 @@ public class TestApplicationTests {
         Retryer<String> retryer = RetryerBuilder.<String>newBuilder()
                 .retryIfExceptionOfType(IOException.class)
                 .retryIfRuntimeException()
-                .withWaitStrategy(WaitStrategies.fixedWait(3,TimeUnit.SECONDS))
+                .withWaitStrategy(WaitStrategies.fixedWait(3, TimeUnit.SECONDS))
                 .withStopStrategy(StopStrategies.stopAfterAttempt(2))
-                .withAttemptTimeLimiter(AttemptTimeLimiters.fixedTimeLimit(3,TimeUnit.SECONDS))
+                .withAttemptTimeLimiter(AttemptTimeLimiters.fixedTimeLimit(3, TimeUnit.SECONDS))
                 .withRetryListener(new RetryListener() {
                     @Override
                     public <V> void onRetry(Attempt<V> attempt) {
-                        System.out.println("当前任务重试次数:"+attempt.getAttemptNumber());
-                       if(attempt.hasException()){
-                           System.out.println("任务执行异常,原因:"+attempt.getExceptionCause());
-                       }
+                        System.out.println("当前任务重试次数:" + attempt.getAttemptNumber());
+                        if (attempt.hasException()) {
+                            System.out.println("任务执行异常,原因:" + attempt.getExceptionCause());
+                        }
                     }
                 })
                 .build();
@@ -1170,34 +1173,35 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void test2DImg(){
+    public void test2DImg() {
         QrCodeUtil.generate("https://www.baidu.com/", 300, 300, FileUtil.file("d:/qrcode.jpg"));
     }
 
     @Test
-    public void testGuava(){
-        Optional<Integer> possible = Optional.of(null);
+    public void testGuava() throws Exception {
+        Object a = Optional.ofNullable("dada").orElseThrow(() -> new Exception());
+        System.out.println(a);
     }
 
     @Test
-    public void testCatch(){
+    public void testCatch() {
         class Annoyance extends Exception {
         }
         class Sneeze extends Annoyance {
         }
         try {
-                try {
-                    throw new Sneeze();
-                } catch ( Annoyance a ) {
-                    System.out.println("Caught Annoyance");
-                    throw a;
-                }
-            } catch ( Sneeze s ) {
-                System.out.println("Caught Sneeze");
-                return ;
-            } finally {
-                System.out.println("Hello World!");
+            try {
+                throw new Sneeze();
+            } catch (Annoyance a) {
+                System.out.println("Caught Annoyance");
+                throw a;
             }
+        } catch (Sneeze s) {
+            System.out.println("Caught Sneeze");
+            return;
+        } finally {
+            System.out.println("Hello World!");
+        }
     }
 
     @Test
@@ -1227,14 +1231,14 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testValueTransmit(){
+    public void testValueTransmit() {
         /**
          * 下面再总结一下Java中方法参数的使用情况
          * 一个方法不能修改一个基本数据类型的参数（即数值型或布尔型》
          * 一个方法可以改变一个对象参数的状态。
          * 一个方法不能让对象参数引用一个新的对象。
          */
-        class Student{
+        class Student {
             String name;
 
             public Student(String name) {
@@ -1257,11 +1261,217 @@ public class TestApplicationTests {
                 System.out.println("y:" + y.getName());
             }
         }
-            Student s1 = new Student("小张");
-            Student s2 = new Student("小李");
-            s1.swap(s1, s2);
-            System.out.println("s1:" + s1.getName());
-            System.out.println("s2:" + s2.getName());
+        Student s1 = new Student("小张");
+        Student s2 = new Student("小李");
+        s1.swap(s1, s2);
+        System.out.println("s1:" + s1.getName());
+        System.out.println("s2:" + s2.getName());
+    }
+
+    @Test
+    public void testTwoArray() {
+        String[] arr = {"a", "b", "c"};
+        String[] arr2 = {"b", "c", "e"};
+        // 使用new ArrayList包裹一层
+        List<String> list = new ArrayList<>(Arrays.asList(arr));
+        List<String> list1 = new ArrayList<>(Arrays.asList(arr2));
+        list.removeAll(list1);
+        System.out.println(list);
+        System.out.println("商品活动编号:" + list + "不存在");
+    }
+
+    @Test
+    public void testStringFormat() {
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 5; j++) {
+                if (j == 2) {
+                    return;
+                }
+                System.out.println("2020042414170224539989".concat(String.format("%03d", i + 1)));
+            }
+
         }
+    }
+
+    @Test
+    public void testIsBlank() {
+        try {
+            try {
+                test13131231();
+            } catch (Exception e) {
+                System.out.println("aaa");
+            }
+        } catch (Exception e) {
+            System.out.println("dasdsadsadsadsadasdsa");
+        }
+
+        System.out.println("aaa");
+    }
+
+    private void test13131231() throws Exception {
+        String a = "1";
+        if (a.equals("1")) {
+            System.out.println("aaaaaaabbbbbbbb");
+            throw new Exception();
+        }
+        System.out.println("3123213213213213212");
+    }
+
+    @Test
+    public void testLoop() {
+        int count = 1;
+        for (int i = 0; i < 5; i++) {
+            for (int j = 0; j < 4; j++) {
+                System.out.println(count++);
+                if (j == 1) {
+                    continue;
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testJsonParse() {
+        String call = "{\"code\":\"000\",\"sign\":\"XXXXXXXX\",\"accessToken\":\"ea2bf3e67f9b4789a6a48302c248132d\",\"content\":{\"verifyOutTradeNo\":\"317715889984245760\",\"coupon\":{\"code\":\"53646014\",\"endDate\":\"2021-05-31\",\"startDate\":\"2020-05-26\"},\"orderBcOrderNo\":\"200526052931010001\",\"activityName\":\"两鲜商品特卖\",\"verifyBcTradeNo\":\"590485371816013085\",\"bcActivityProductNo\":\"AT0005000053\",\"productName\":\"新测试3\",\"productNo\":\"PD00052\",\"outActivityProductNo\":\"AT0005000052\"},\"desc\":\"操作成功\",\"timestamp\":1590485371}";
+        JSONObject jsonObject = JSONObject.parseObject(call);
+        System.out.println(jsonObject.getString("content"));
+        FetchCouponVO fetchCouponVO = JSONObject.parseObject("{verifyOutTradeNo=317715889984245760, coupon={code=53646014, endDate=2021-05-31, startDate=2020-05-26}, orderBcOrderNo=200526052931010001, activityName=两鲜商品特卖, verifyBcTradeNo=590485371816013085, bcActivityProductNo=AT0005000053, productName=新测试3, productNo=PD00052, outActivityProductNo=AT0005000052}", FetchCouponVO.class);
+        System.out.println(fetchCouponVO);
+    }
+
+    /**
+     * 测试伪共享
+     * 伪共享:CPU存在缓存,且是以缓存行的形式存在的.由于存放在Cache行的是内存块而不是单个变量,所以可能把多个变量存在到一个Cache行中,当多个线程同时修改一个缓存行里面的多个
+     * 变量时,由于同时只能有一个线程操作缓存行,所以相比将每个变量放到一个缓存行效率要低.这就是伪共享
+     * 出现条件:多个变量放入到了一个缓存行中,且多个线程同时去写入缓存行中不同的变量.
+     * 分析执行结果:数组内内存地址是连续的,访问第一个数组元素时,后面若干元素一块放入内存行,所以顺序访问时会在缓存直接命中.所以当顺序访问数组元素时,效率会高.而当跳跃式访问时,
+     * 则相比而言效率会低.所以下述结果为第二个循环赋值花费时间较第一个要多.
+     */
+    @Test
+    public void testContended() {
+        long startTime = System.currentTimeMillis();
+        long[][] arr1 = new long[10245][10245];
+        for (int i = 0; i < 10245; i++) {
+            for (int j = 0; j < 10245; j++) {
+                arr1[i][j] = i * j;
+            }
+        }
+        long endTime = System.currentTimeMillis();
+        System.out.println("消耗时间为:" + (endTime - startTime));
+        long startTime2 = System.currentTimeMillis();
+        long[][] arr2 = new long[10245][10245];
+        for (int i = 0; i < 10245; i++) {
+            for (int j = 0; j < 10245; j++) {
+                arr2[j][i] = i * j;
+            }
+        }
+        long endTime2 = System.currentTimeMillis();
+        System.out.println("消耗时间为:" + (endTime2 - startTime2));
+    }
+
+    @Test
+    public void testListIterator() {
+        List<String> arr = new ArrayList<>();
+        arr.add("a");
+        arr.add("b");
+        arr.add("c");
+        ListIterator<String> ite = arr.listIterator(arr.size());
+        while (ite.hasPrevious()) {
+            System.out.println("**************" + ite.previous() + "****************");
+        }
+    }
+
+    @Test
+    public void createObject5() throws Exception {
+        //使用new关键字
+        People people1 = new People();
+        //使用Class的newInstance方法
+        People people2 = People.class.newInstance();
+        //使用Constructor类的newInstance方法
+        Constructor<People> constructor = People.class.getConstructor();
+        People people3 = constructor.newInstance();
+        //使用clone方法,没有调用构造函数
+        People people4 = (People) people3.clone();
+        //使用反序列化,没有调用构造函数
+        ObjectInputStream in = new ObjectInputStream(new FileInputStream("data.obj"));
+        People people5 = (People) in.readObject();
+    }
+
+    @Test
+    public void testExceptionLog() throws ExceptionWrapper2 {
+        Scanner sc = new Scanner(System.in);
+        if (sc.next().equals("1")) {
+            throw new ExceptionWrapper2("aa", "dasdas");
+        }
+    }
+
+
+    @Test
+    public void testConcurrentHashMap() throws ExceptionWrapper2 {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>("dsadas", headers);
+        String result = new RestTemplate().postForObject("http://uatdatarewards.92jiangbei.com/api/bc-customer/activityProductInfo/queryByKey", entity, String.class);
+        JSONObject jsonObject = JSONObject.parseObject(result);
+        System.out.println(jsonObject);
+    }
+
+
+    @Test
+    public void dasdasdsadsadasdasdas() throws ExceptionWrapper2 {
+        double a = 1.000000000;
+        System.out.println(a == 1);
+    }
+
+    @Test
+    public void testAliPay() throws AlipayApiException {
+        HashMap hashMap = new HashMap();
+        hashMap.put("orderNo", "dsadsada");
+        System.out.println(WebUtils.buildForm("https://uatprizejiangbei.92jiangbei.com/#/pay/success?type=2&productNo=AT0001700063&discountAmount=0&num=1", hashMap));
+    }
+
+    @Test
+    public void testLambda8() {
+        List<Integer> list = null;
+        System.out.println(null == list);
+    }
+
+    @Test
+    public void tedasdsadasdasda() {
+//        ElemeReportChannelParam elemeReportChannelParam = new ElemeReportChannelParam();
+//        elemeReportChannelParam.setStartTime("2021-01-01");
+//        elemeReportChannelParam.setEndTime("2021-12-12");
+//        String result = new RestTemplate().postForObject("http://192.168.0.30:8085/report/layout",elemeReportChannelParam,String.class);
+//        JSONObject respCheck = JSON.parseObject(result);
+//        JSONArray jsonArray = respCheck.getJSONArray("content");
+//        System.out.println(result);
+//        List<String> a = new ArrayList<>();
+//        a.add("a");
+//        a = a.subList(0, 5);
+        System.out.println(-1<<29|0);
+        System.out.println(1<<29);
+        System.out.println((-1<<29|0)&(1<<29));
+    }
+
+    @Test
+    public void testSuanFa() {
+        class ListNode {
+            int val;
+            ListNode next = null;
+            ListNode(int val) {
+                this.val = val;
+            }
+        }
+        ListNode listNode = new ListNode(1);
+        Stack<Integer> stack = new Stack<Integer>();
+        while (listNode != null) {
+            stack.push(listNode.val);
+            listNode = listNode.next;
+        }
+        ArrayList<Integer> list = new ArrayList<Integer>();
+        while (!stack.isEmpty()) {
+            list.add(stack.pop());
+        }
+    }
 
 }

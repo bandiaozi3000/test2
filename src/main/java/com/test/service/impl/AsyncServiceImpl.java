@@ -1,7 +1,6 @@
 package com.test.service.impl;
 
 import com.test.service.AsyncService;
-import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -12,8 +11,8 @@ import org.springframework.stereotype.Service;
  * @Date:2019/10/21 10:08
  * @Version:V3.3
  */
-@Service
-@Scope("prototype")
+@Service("dasdsa")
+//@Scope("prototype")
 public class AsyncServiceImpl implements AsyncService{
 
 
@@ -21,6 +20,7 @@ public class AsyncServiceImpl implements AsyncService{
     @Async
     public void testAsync() {
         try {
+            int a = 10/0;
             System.out.println("同步任务开始");
             Thread.sleep(5000);
         } catch (InterruptedException e) {
