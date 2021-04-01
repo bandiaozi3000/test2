@@ -29,14 +29,14 @@ public class LockAspect {
      * 思考：为什么不用synchronized
      * service 默认是单例的，并发下lock只有一个实例
      */
-	private static  Lock lock = new ReentrantLock(true);//互斥锁 参数默认false，不公平锁  
+	private static  Lock lock = new ReentrantLock(true);//互斥锁 参数默认false，不公平锁
 
 	//Service层切点     用于记录错误日志
 	@Pointcut("@annotation(com.test.aop.Servicelock)")
 	public void lockAspect() {
-		
+
 	}
-	
+
     @Around("lockAspect()")
     public  Object around(ProceedingJoinPoint joinPoint) throws InterruptedException {
     	lock.lock();
@@ -46,10 +46,10 @@ public class LockAspect {
 			obj = joinPoint.proceed();
 		} catch (Throwable e) {
 			e.printStackTrace();
-			throw new RuntimeException();       
+			throw new RuntimeException();
 		} finally{
 			lock.unlock();
 		}
     	return obj;
-    } 
+    }
 }

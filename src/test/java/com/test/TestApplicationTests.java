@@ -1,7 +1,5 @@
 package com.test;
 
-import cn.hutool.core.io.FileUtil;
-import cn.hutool.extra.qrcode.QrCodeUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.PascalNameFilter;
@@ -12,6 +10,7 @@ import com.github.rholder.retry.*;
 import com.google.common.util.concurrent.RateLimiter;
 import com.test.aspect.MyAspect;
 import com.test.bean.*;
+import com.test.bean.vo.CouponsDataVO;
 import com.test.bean.vo.FetchCouponVO;
 import com.test.controller.ExceptionController;
 import com.test.controller.TestController;
@@ -26,14 +25,17 @@ import com.test.service.HystrixService;
 import com.test.service.MailService;
 import com.test.service.TestInterface;
 import com.test.service.impl.TestInterfaceImpl;
-import com.test.util.AddressUtils;
-import com.test.util.CollectionUtil;
-import com.test.util.SpringContextUtil;
-import com.test.util.TemplateUtil;
+import com.test.util.*;
+import edu.uci.ics.crawler4j.crawler.CrawlConfig;
+import edu.uci.ics.crawler4j.crawler.CrawlController;
+import edu.uci.ics.crawler4j.fetcher.PageFetcher;
+import edu.uci.ics.crawler4j.robotstxt.RobotstxtConfig;
+import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.commons.lang3.time.DateUtils;
+import org.apache.http.message.BasicHeader;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -56,6 +58,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Resource;
 import javax.crypto.*;
@@ -97,13 +100,13 @@ public class TestApplicationTests {
     private TestInterface testInterface;
 
     @Autowired
-    private TestController testController;
-
-    @Autowired
     private MailService mailService;
 
     @Resource
     private ApplicationContext applicationContext;
+
+    @Resource
+    private JwtTokenUtil jwtTokenUtil;
 
 
     /**
@@ -617,7 +620,7 @@ public class TestApplicationTests {
         //5.通过私钥和密文对传输的数据生成数字签名
         Signature signature = Signature.getInstance("MD5withRSA");
         signature.initSign(privateKey);
-        signature.update(cipherData);
+        signature.update(decodeData);
         byte[] sign = signature.sign();
         System.out.println(new String(sign));//打印签名:���k��T��%�ȣ86o�ک!�W�7���
         //6.根据公钥和密文验证数据是否被修改过
@@ -874,7 +877,8 @@ public class TestApplicationTests {
     @Test
     public void testController() throws Exception {
         MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ExceptionController()).build();
-        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders.get("/test1").accept(MediaType.APPLICATION_JSON)).andReturn();
+        MvcResult mvcResult = mockMvc.perform(MockMvcRequestBuilders.get("/test1")
+                .accept(MediaType.APPLICATION_JSON)).andReturn();
 
     }
 
@@ -1040,9 +1044,51 @@ public class TestApplicationTests {
     @Test
     public void testSpringBean() {
         ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
-        AsyncService asyncService = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
-        AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
-        System.out.println(asyncService == asyncService1);
+        AsyncService asyncService = (AsyncService) SpringContextUtil.getBean("dasdsa");
+//        AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
+        TestController testController =  (TestController) SpringContextUtil.getBean("testController");
+        System.out.println("sdadas");
+//        System.out.println(asyncService == asyncService1);
+
+    }
+
+
+    /**
+     * 测试SpringAop机制
+     * 获取testController bean，可以发现该bean是一个代理类,且代理类型为cglib动态代理
+     * 实验:1.将testController实现一接口,观察代理类型
+     *     结果:还是cglib动态代理,和设想的(jdk动态代理不一样,待后续考证)
+     *     2.将AOP配置类limitAspect和LockAspect注释掉,观察bean类型
+     *     结果:发现此时bean类型是普通的bean,而非代理类
+     * 调试原理:
+     *    断点：
+     *    1.AbstractAutowireCapableBeanFactory.doCreateBean(533) populateBean()此时观察bean对象类型
+     *    发现此时还是正常的bean类型,执行下一步initializeBean,观察方法过后bean对象为代理对象,表明该方法对bean对象
+     *    生成了代理对象,跳入该方法
+     *    2.initializeBean(1633) applyBeanPostProcessorsAfterInitialization()该方法生成代理类,该方法内部实现
+     *    遍历beanProcessor对象bean对象做后置处理,观察发现起作用processor为AnnotationAwareAspectJAutoProxyCreator
+     *    3.AbstractAutoProxyCreator.postProcessAfterInitialization(298) wrapIfNecessary 该方法即为核心方法
+     *    4.AbstractAutoProxyCreator.wrapIfNecessary(346) getAdvicesAndAdvisorsForBean,从该方法可获得
+     *    AdvicesAndAdvisors数组(数组内容即切面的切点和切面方法封装)。获取的大致实现原理:获取系统内所有带有@Aspect的注解类
+     *    根据切点和当前类对象获取符合该类对象的切点.findAdvisorsThatCanApply()
+     *    5.AbstractAutoProxyCreator.wrapIfNecessary(346) createProxy,根据方法名可以看出创建代理对象就在该方法中
+     *    查看该方法:选取代理类,核心方法DefaultAopProxyFactory.createAopProxy,当前方法即为判断选取jdk或者cglib代理
+     *    选取条件:createProxy 有 2 种创建方法，JDK 代理或 CGLIB
+     *           如果设置了 proxyTargetClass=true，一定是 CGLIB 代理
+     *           如果 proxyTargetClass=false，目标对象实现了接口，走 JDK 代理
+     *           如果没有实现接口，走 CGLIB 代理
+     *    选取代理类后创建代理对象,大致流程即如上
+     *
+     *    解释上文：testController实现接口还是走cglib,观察发现若只是单纯实现接口,接口没方法,创建代理对象是判断条件
+     *    config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config) 结果都为true,此时走cglib代理
+     *    若实现接口并重写其方法内某一方法,上述判断条件都为false,此时走的就是jdk动态代理.至于原因暂未得知.
+     *
+     */
+    @Test
+    public void testSpringAop() {
+        ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
+        Object testController = SpringContextUtil.getBean("testController");
+        System.out.println(testController);
 
     }
 
@@ -1172,10 +1218,10 @@ public class TestApplicationTests {
         }
     }
 
-    @Test
-    public void test2DImg() {
-        QrCodeUtil.generate("https://www.baidu.com/", 300, 300, FileUtil.file("d:/qrcode.jpg"));
-    }
+//    @Test
+//    public void test2DImg() {
+//        QrCodeUtil.generate("https://www.baidu.com/", 300, 300, FileUtil.file("d:/qrcode.jpg"));
+//    }
 
     @Test
     public void testGuava() throws Exception {
@@ -1445,12 +1491,9 @@ public class TestApplicationTests {
 //        JSONObject respCheck = JSON.parseObject(result);
 //        JSONArray jsonArray = respCheck.getJSONArray("content");
 //        System.out.println(result);
-//        List<String> a = new ArrayList<>();
-//        a.add("a");
-//        a = a.subList(0, 5);
-        System.out.println(-1<<29|0);
-        System.out.println(1<<29);
-        System.out.println((-1<<29|0)&(1<<29));
+        List<String> a = new ArrayList<>();
+        a.add("a");
+        a = a.subList(0, 5);
     }
 
     @Test
@@ -1458,6 +1501,7 @@ public class TestApplicationTests {
         class ListNode {
             int val;
             ListNode next = null;
+
             ListNode(int val) {
                 this.val = val;
             }
@@ -1473,5 +1517,219 @@ public class TestApplicationTests {
             list.add(stack.pop());
         }
     }
+
+    @Test
+    public void testFlux() throws IOException {
+//        //just 方法直接声明
+//        Flux.just(1,2,3,4).subscribe(System.out::println);
+//        Mono.just(1).subscribe(System.out::println);
+//        Flux.just(1,2,3).doOnNext(x-> {
+//            System.out.println(x);
+//            System.out.println("sdadasd");
+//        }).subscribe();
+//        Flux.just(1).doOnComplete(()->{
+//            System.out.println("sasasa");
+//        }).subscribe();
+//        Flux.create((t) -> {
+//            t.next("create");
+//            t.next("create1");
+////            t.complete();
+//        }).subscribe(System.out::println);
+//        Flux.error(new RuntimeException()).subscribe(System.out::println);
+//        Flux.error(new RuntimeException());
+//        Flux.range(0, 100).subscribe(System.out::println);
+//        Flux.interval(Duration.of(5, ChronoUnit.SECONDS)).subscribe(System.out::println);
+//        System.in.read();
+////        //其他的方法
+//        Integer[] array = {1,2,3,4};
+//        Flux.fromArray(array);
+//        List<Integer> list = Arrays.asList(array);
+//        Flux.fromIterable(list);
+//        Stream<Integer> stream = list.stream();
+//        Flux.fromStream(stream);
+        //  System.out.println(Flux.just(1, 2).concatWith(Mono.error(new IllegalStateException())).onErrorReturn(0).subscribe(System.out::println));
+//        Flux.just(1, 2).concatWith(Mono.error(new IllegalArgumentException()))
+//                .onErrorResume(e -> {
+//                    if (e instanceof IllegalStateException) {
+//                        return Mono.just(0);
+//                    } else if (e instanceof IllegalArgumentException) {
+//                        return Mono.just(-1);
+//                    }
+//                    return Mono.empty();
+//                })
+//                .subscribe(System.out::println);
+        Mono.just(2).then(Mono.just(1)).subscribe(System.out::println);
+    }
+
+    @Test
+    public void testAnnotationBean() {
+//        SpringAnnotationBeanTest springAnnotationBeanTest = (SpringAnnotationBeanTest) (applicationContext.getBean("springAnnotationBeanConfigurationTest"));
+//        System.out.println(springAnnotationBeanTest.getEnable());
+        System.out.println(applicationContext.getBeanNamesForType(SpringAnnotationBeanTest.class)[0]);
+        System.out.println(springAnnotationBeanTest.getEnable());
+    }
+
+    @Test
+    public void defer() {
+        //声明阶段创建DeferClass对象
+
+        Mono<Date> m1 = Mono.just(new Date());
+        Mono<Date> m2 = Mono.defer(() -> Mono.just(new Date()));
+        m1.subscribe(System.out::println);
+        m2.subscribe(System.out::println);
+        //延迟5秒钟
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        m1.subscribe(System.out::println);
+        m2.subscribe(System.out::println);
+    }
+
+    @Autowired
+    SpringAnnotationBeanTest springAnnotationBeanTest;
+
+    @Test
+    public void testUtilCopies() {
+        List<String> a = new ArrayList<>();
+        a.add("111");
+        MemberCouponsInfoVO memberCouponsInfoVO = new MemberCouponsInfoVO();
+        memberCouponsInfoVO.setA(a);
+        MemberCouponsInfoVO memberCouponsInfoVO1 = new MemberCouponsInfoVO();
+        BeanUtils.copyProperties(memberCouponsInfoVO, memberCouponsInfoVO1);
+        System.out.println(memberCouponsInfoVO1);
+        a.add("222");
+        System.out.println(memberCouponsInfoVO1);
+    }
+
+    @Test
+    public void testSubAndSourceList() {
+        List<String> sourceList = new ArrayList<String>() {{
+            add("H");
+            add("O");
+            add("L");
+            add("L");
+            add("I");
+            add("S");
+        }};
+        List subList = sourceList.subList(2, 5);
+        System.out.println("sourceList ： " + sourceList);
+        System.out.println("sourceList.subList(2, 5) 得到List ：");
+        System.out.println("subList ： " + subList);
+        sourceList.add("666");
+        System.out.println("sourceList.add(666) 得到List ：");
+        System.out.println("sourceList ： " + sourceList);
+        System.out.println("subList ： " + subList);
+    }
+
+    @Test
+    public void testThreadLocal() {
+//        ThreadLocal<List<String>> threadLocal = new ThreadLocal<>();
+//        List<String> strings = new ArrayList<>();
+//        strings.add("111");
+//        strings.add("222");
+//        ExecutorService executorService = Executors.newFixedThreadPool(5);
+//        for (int i = 0; i < 10; i++) {
+//            executorService.execute(() -> {
+//                threadLocal.set(strings);
+//            });
+//        }
+//        for (int i = 0; i < 10; i++) {
+//            executorService.execute(() -> {
+//                System.out.println(threadLocal.get().hashCode());
+//            });
+//        }
+        System.out.println("1".equals("1"));
+        List<String> a = new ArrayList<>();
+        a.add("a");
+        a.add("b");
+        List<String> b = a;
+        b.add("c");
+        System.out.println(a);
+    }
+
+    @Test
+    public void testJWT() {
+        CouponsDataVO couponsDataVO = new CouponsDataVO();
+        couponsDataVO.setCode("aa");
+        couponsDataVO.setCodePass("bbb");
+        String token = jwtTokenUtil.generateToken(couponsDataVO);
+        CouponsDataVO couponsDataVO1 = jwtTokenUtil.getClaimsFromToken(token,CouponsDataVO.class);
+        System.out.println(couponsDataVO1);
+    }
+
+    @Test
+    public void testReference() {
+        String a = "a";
+        String b= a;
+        a="c";
+        System.out.println(b);
+    }
+
+    @Test
+    public void testJSON() {
+        List<Object> list = new ArrayList<>();
+        Object o = new Object();
+        list.add(o);
+        list.add(o);
+        String jsonStr = JSON.toJSONString(list);
+        System.out.println(jsonStr);
+    }
+
+    @Test
+    public void testPachong() throws Exception {
+        String crawlStorageFolder = "/Users/mac/Downloads/crawl";
+        int numberOfCrawlers = 7;
+        CrawlConfig config = new CrawlConfig();
+        config.setFollowRedirects(false);
+        config.setCrawlStorageFolder(crawlStorageFolder);
+
+        HashSet<BasicHeader> collections = new HashSet<BasicHeader>();
+        collections.add(new BasicHeader("User-Agent","Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3192.0 Safari/537.36"));
+        collections.add(new BasicHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"));
+        collections.add(new BasicHeader("Accept-Encoding", "gzip,deflate,sdch"));
+        collections.add(new BasicHeader("Accept-Language", "zh-CN,zh;q=0.8,en;q=0.6"));
+        collections.add(new BasicHeader("Content-Type","application/x-www-form-urlencoded;charset=UTF-8"));
+        collections.add(new BasicHeader("Connection", "keep-alive"));
+        collections.add(new BasicHeader("Cookie", "bid=fp-BlwmyeTY; __yadk_uid=dLpMqMsIGD1N38NzhbcG3E6QA33NQ9bE; ps=y; _pk_ref.100001.8cb4=%5B%22%22%2C%22%22%2C1506515077%2C%22https%3A%2F%2Faccounts.douban.com%2Flogin%3Falias%3D793890838%2540qq.com%26redir%3Dhttps%253A%252F%252Fwww.douban.com%26source%3DNone%26error%3D1013%22%5D; ll=\"108296\"; ue=\"793890838@qq.com\"; __utmt=1; _ga=GA1.2.388925103.1505404043; _gid=GA1.2.1409223546.1506515083; dbcl2=\"161927939:ZDwWtUnYaH4\"; ck=rMaO; ap=1; push_noty_num=0; push_doumail_num=0; __utma=30149280.388925103.1505404043.1506510959.1506515077.8; __utmb=30149280.22.9.1506516374528; __utmc=30149280; __utmz=30149280.1506510959.7.5.utmcsr=accounts.douban.com|utmccn=(referral)|utmcmd=referral|utmcct=/login; __utmv=30149280.16192; _pk_id.100001.8cb4=1df4f52fdf296b72.1505404042.8.1506516380.1506512502.; _pk_ses.100001.8cb4=*"));
+        config.setDefaultHeaders(collections);
+        /*
+         * Instantiate the controller for this crawl.
+         */
+        PageFetcher pageFetcher = new PageFetcher(config);
+        RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
+        RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
+
+        CrawlController controller = new CrawlController(config, pageFetcher, robotstxtServer);
+
+        /*
+         * For each crawl, you need to add some seed urls. These are the first
+         * URLs that are fetched and then the crawler starts following links
+         * which are found in these pages
+         */
+        controller.addSeed("http://ecboot.it.shopex123.com/v2/api-docs");
+
+        /*
+         * Start the crawl. This is a blocking operation, meaning that your code
+         * will reach the line after this only when crawling is finished.
+         */
+        controller.start(MyCrawler.class, numberOfCrawlers);
+    }
+
+    @Test
+    public void testStringWarp(){
+        String str = "sdas";
+        System.out.println(org.apache.commons.lang3.StringUtils.wrap(str,"{}"));
+    }
+
+    @Test
+    public void testDateUtil(){
+
+        byte[] b=  {-2, -101, -128, -27, -73, -94};
+        String s = new String(b);
+        System.out.println(s);
+    }
+
 
 }

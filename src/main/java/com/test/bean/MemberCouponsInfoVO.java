@@ -6,6 +6,7 @@ import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 /**
  * @ClassName:MemberCouponsInfoVO
@@ -82,5 +83,7 @@ public class MemberCouponsInfoVO {
      * 用户获得优惠券时间
      */
     private Date obtainTime;
+
+    private List<String> a;
 
 }

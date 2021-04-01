@@ -37,13 +37,13 @@ public class LimitAspect {
 					return RateLimiter.create(50);
 				}
 			});
-	
+
 	//Service层切点  限流
 	@Pointcut("@annotation(com.test.aop.ServiceLimit)")
 	public void ServiceAspect() {
-		
+
 	}
-	
+
     @Around("ServiceAspect()")
     public  Object around(ProceedingJoinPoint joinPoint) {
 		MethodSignature signature = (MethodSignature) joinPoint.getSignature();
@@ -68,5 +68,5 @@ public class LimitAspect {
 			throw new RrException("小同志，你访问的太频繁了"+"asaaaaaaaaaaaaaaaaaaa");
 		}
 		return obj;
-    } 
+    }
 }

@@ -4,6 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.extra.qrcode.QrCodeUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.test.annotation.Valid;
 import com.test.aop.ServiceLimit;
 import com.test.aop.Servicelock;
 import com.test.bean.User;
@@ -44,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 @Controller
 @RequestMapping
-public class TestController {
+public class TestController implements TestInterface{
 
 
     private Logger logger = LoggerFactory.getLogger(TestController.class);
@@ -163,5 +164,8 @@ public class TestController {
         object2.put("code",22);
         return object2;
     }
-
+    @Override
+    public void aa() {
+        System.out.println("dadas");
+    }
 }

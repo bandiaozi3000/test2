@@ -3,7 +3,11 @@ package com.test.bean;
 import lombok.Data;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.*;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEvent;
@@ -20,7 +24,8 @@ import javax.annotation.PreDestroy;
 
 @Component
 @Data
-public class SpringBeanAll implements BeanNameAware,BeanFactoryAware,ApplicationContextAware,BeanPostProcessor,InitializingBean,DisposableBean,ApplicationListener {
+public class SpringBeanAll implements BeanNameAware,BeanFactoryAware,ApplicationContextAware,BeanPostProcessor,InitializingBean,DisposableBean,ApplicationListener
+        , BeanFactoryPostProcessor, BeanDefinitionRegistryPostProcessor {
     private String name;
     private Integer age;
 
@@ -106,4 +111,13 @@ public class SpringBeanAll implements BeanNameAware,BeanFactoryAware,Application
         System.out.println("**************** SpringBeanALL destroy ****************");
     }
 
+    @Override
+    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
+
+    }
+
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+
+    }
 }
