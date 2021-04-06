@@ -1,5 +1,10 @@
 package com.test;
 
+import cn.afterturn.easypoi.excel.ExcelImportUtil;
+import cn.afterturn.easypoi.excel.entity.ImportParams;
+import cn.afterturn.easypoi.util.PoiPublicUtil;
+import cn.hutool.poi.excel.ExcelReader;
+import cn.hutool.poi.excel.ExcelUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.PascalNameFilter;
@@ -26,19 +31,17 @@ import com.test.service.MailService;
 import com.test.service.TestInterface;
 import com.test.service.impl.TestInterfaceImpl;
 import com.test.util.*;
-import edu.uci.ics.crawler4j.crawler.CrawlConfig;
-import edu.uci.ics.crawler4j.crawler.CrawlController;
-import edu.uci.ics.crawler4j.fetcher.PageFetcher;
-import edu.uci.ics.crawler4j.robotstxt.RobotstxtConfig;
-import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.commons.lang3.time.DateUtils;
-import org.apache.http.message.BasicHeader;
-import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.ss.extractor.ExcelExtractor;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
+import org.apache.poi.xssf.usermodel.XSSFPicture;
+import org.apache.poi.xssf.usermodel.XSSFShape;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.BeanUtils;
@@ -59,6 +62,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
+import sun.jvm.hotspot.debugger.PageFetcher;
 
 import javax.annotation.Resource;
 import javax.crypto.*;
@@ -749,31 +753,31 @@ public class TestApplicationTests {
         mailService.sendAttachmentsMail(System.getProperty("user.dir") + "/2020-02-23麦菲退款申请订单数据.xlsx", "lm.sun@i-vpoints.com", "麦斐退款订单数据", "详情见附件");
     }
 
-    @Test
-    public void testIO() {
-        XSSFWorkbook workbook = new XSSFWorkbook();
-        XSSFSheet xssfSheet = workbook.createSheet("麦斐退款订单");
-        //自定义列标题
-        String[] headers = {"姓名", "联系电话", "串码", "订单号"};
-        XSSFRow row = xssfSheet.createRow(0);
-        FileOutputStream fos = null;
-        try {
-            String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(), 0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
-            fos = new FileOutputStream(new File(System.getProperty("user.dir") + "/" + subjectName + ".xlsx"));
-            workbook.write(fos);
-            fos.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            if (fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
+//    @Test
+//    public void testIO() {
+//        XSSFWorkbook workbook = new XSSFWorkbook();
+//        XSSFSheet xssfSheet = workbook.createSheet("麦斐退款订单");
+//        //自定义列标题
+//        String[] headers = {"姓名", "联系电话", "串码", "订单号"};
+//        XSSFRow row = xssfSheet.createRow(0);
+//        FileOutputStream fos = null;
+//        try {
+//            String subjectName = DateFormatUtils.format(DateUtils.addDays(new Date(), 0), "yyyy-MM-dd") + "麦斐退款申请订单数据";
+//            fos = new FileOutputStream(new File(System.getProperty("user.dir") + "/" + subjectName + ".xlsx"));
+//            workbook.write(fos);
+//            fos.flush();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } finally {
+//            if (fos != null) {
+//                try {
+//                    fos.close();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//    }
 
     @Test
     public void testFileDelete() {
@@ -1089,6 +1093,16 @@ public class TestApplicationTests {
         ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
         Object testController = SpringContextUtil.getBean("testController");
         System.out.println(testController);
+
+    }
+
+    /**
+     * 测试Spring事务机制
+     *
+     *
+     */
+    @Test
+    public void testSpringTransaction(){
 
     }
 
@@ -1677,45 +1691,45 @@ public class TestApplicationTests {
         System.out.println(jsonStr);
     }
 
-    @Test
-    public void testPachong() throws Exception {
-        String crawlStorageFolder = "/Users/mac/Downloads/crawl";
-        int numberOfCrawlers = 7;
-        CrawlConfig config = new CrawlConfig();
-        config.setFollowRedirects(false);
-        config.setCrawlStorageFolder(crawlStorageFolder);
-
-        HashSet<BasicHeader> collections = new HashSet<BasicHeader>();
-        collections.add(new BasicHeader("User-Agent","Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3192.0 Safari/537.36"));
-        collections.add(new BasicHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"));
-        collections.add(new BasicHeader("Accept-Encoding", "gzip,deflate,sdch"));
-        collections.add(new BasicHeader("Accept-Language", "zh-CN,zh;q=0.8,en;q=0.6"));
-        collections.add(new BasicHeader("Content-Type","application/x-www-form-urlencoded;charset=UTF-8"));
-        collections.add(new BasicHeader("Connection", "keep-alive"));
-        collections.add(new BasicHeader("Cookie", "bid=fp-BlwmyeTY; __yadk_uid=dLpMqMsIGD1N38NzhbcG3E6QA33NQ9bE; ps=y; _pk_ref.100001.8cb4=%5B%22%22%2C%22%22%2C1506515077%2C%22https%3A%2F%2Faccounts.douban.com%2Flogin%3Falias%3D793890838%2540qq.com%26redir%3Dhttps%253A%252F%252Fwww.douban.com%26source%3DNone%26error%3D1013%22%5D; ll=\"108296\"; ue=\"793890838@qq.com\"; __utmt=1; _ga=GA1.2.388925103.1505404043; _gid=GA1.2.1409223546.1506515083; dbcl2=\"161927939:ZDwWtUnYaH4\"; ck=rMaO; ap=1; push_noty_num=0; push_doumail_num=0; __utma=30149280.388925103.1505404043.1506510959.1506515077.8; __utmb=30149280.22.9.1506516374528; __utmc=30149280; __utmz=30149280.1506510959.7.5.utmcsr=accounts.douban.com|utmccn=(referral)|utmcmd=referral|utmcct=/login; __utmv=30149280.16192; _pk_id.100001.8cb4=1df4f52fdf296b72.1505404042.8.1506516380.1506512502.; _pk_ses.100001.8cb4=*"));
-        config.setDefaultHeaders(collections);
-        /*
-         * Instantiate the controller for this crawl.
-         */
-        PageFetcher pageFetcher = new PageFetcher(config);
-        RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
-        RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
-
-        CrawlController controller = new CrawlController(config, pageFetcher, robotstxtServer);
-
-        /*
-         * For each crawl, you need to add some seed urls. These are the first
-         * URLs that are fetched and then the crawler starts following links
-         * which are found in these pages
-         */
-        controller.addSeed("http://ecboot.it.shopex123.com/v2/api-docs");
-
-        /*
-         * Start the crawl. This is a blocking operation, meaning that your code
-         * will reach the line after this only when crawling is finished.
-         */
-        controller.start(MyCrawler.class, numberOfCrawlers);
-    }
+//    @Test
+//    public void testPachong() throws Exception {
+//        String crawlStorageFolder = "/Users/mac/Downloads/crawl";
+//        int numberOfCrawlers = 7;
+//        CrawlConfig config = new CrawlConfig();
+//        config.setFollowRedirects(false);
+//        config.setCrawlStorageFolder(crawlStorageFolder);
+//
+//        HashSet<BasicHeader> collections = new HashSet<BasicHeader>();
+//        collections.add(new BasicHeader("User-Agent","Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3192.0 Safari/537.36"));
+//        collections.add(new BasicHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"));
+//        collections.add(new BasicHeader("Accept-Encoding", "gzip,deflate,sdch"));
+//        collections.add(new BasicHeader("Accept-Language", "zh-CN,zh;q=0.8,en;q=0.6"));
+//        collections.add(new BasicHeader("Content-Type","application/x-www-form-urlencoded;charset=UTF-8"));
+//        collections.add(new BasicHeader("Connection", "keep-alive"));
+//        collections.add(new BasicHeader("Cookie", "bid=fp-BlwmyeTY; __yadk_uid=dLpMqMsIGD1N38NzhbcG3E6QA33NQ9bE; ps=y; _pk_ref.100001.8cb4=%5B%22%22%2C%22%22%2C1506515077%2C%22https%3A%2F%2Faccounts.douban.com%2Flogin%3Falias%3D793890838%2540qq.com%26redir%3Dhttps%253A%252F%252Fwww.douban.com%26source%3DNone%26error%3D1013%22%5D; ll=\"108296\"; ue=\"793890838@qq.com\"; __utmt=1; _ga=GA1.2.388925103.1505404043; _gid=GA1.2.1409223546.1506515083; dbcl2=\"161927939:ZDwWtUnYaH4\"; ck=rMaO; ap=1; push_noty_num=0; push_doumail_num=0; __utma=30149280.388925103.1505404043.1506510959.1506515077.8; __utmb=30149280.22.9.1506516374528; __utmc=30149280; __utmz=30149280.1506510959.7.5.utmcsr=accounts.douban.com|utmccn=(referral)|utmcmd=referral|utmcct=/login; __utmv=30149280.16192; _pk_id.100001.8cb4=1df4f52fdf296b72.1505404042.8.1506516380.1506512502.; _pk_ses.100001.8cb4=*"));
+//        config.setDefaultHeaders(collections);
+//        /*
+//         * Instantiate the controller for this crawl.
+//         */
+//        PageFetcher pageFetcher = new PageFetcher(config);
+//        RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
+//        RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
+//
+//        CrawlController controller = new CrawlController(config, pageFetcher, robotstxtServer);
+//
+//        /*
+//         * For each crawl, you need to add some seed urls. These are the first
+//         * URLs that are fetched and then the crawler starts following links
+//         * which are found in these pages
+//         */
+//        controller.addSeed("http://ecboot.it.shopex123.com/v2/api-docs");
+//
+//        /*
+//         * Start the crawl. This is a blocking operation, meaning that your code
+//         * will reach the line after this only when crawling is finished.
+//         */
+//        controller.start(MyCrawler.class, numberOfCrawlers);
+//    }
 
     @Test
     public void testStringWarp(){
@@ -1730,6 +1744,51 @@ public class TestApplicationTests {
         String s = new String(b);
         System.out.println(s);
     }
+//
+//    @Test
+//    public void converterRead() {
+//        String fileName = "/Users/mac/Documents/图片.xlsx";
+//        // 这里 需要指定读用哪个class去读，然后读取第一个sheet
+//        EasyExcel.read(fileName, new ConverterDataListener())
+//                // 这里注意 我们也可以registerConverter来指定自定义转换器， 但是这个转换变成全局了， 所有java为string,excel为string的都会用这个转换器。
+//                // 如果就想单个字段使用请使用@ExcelProperty 指定converter
+//                // .registerConverter(new CustomStringStringConverter())
+//                // 读取sheet
+//                .sheet().doRead();
+//    }
 
+    @Test
+    public void testHutoolExcel(){
+        File file = new File("/Users/mac/Documents/图片.xlsx");
+        ExcelReader reader = ExcelUtil.getReader(file, 1);
+        List<Map<String,Object>> maps = reader.readAll();
+        Workbook workbook = reader.getWorkbook();
+        XSSFSheet sheet = (XSSFSheet) workbook.getSheetAt(1);
+
+        //03版本
+        //for (HSSFShape shape : sheet.getDrawingPatriarch().getChildren()) {
+        //07版本
+        List<XSSFShape> shapes = sheet.getDrawingPatriarch().getShapes();
+        for (XSSFShape shape : shapes) {
+            XSSFClientAnchor anchor = (XSSFClientAnchor) shape.getAnchor();
+            if (shape instanceof XSSFPicture) {
+                XSSFPicture pic = (XSSFPicture) shape;
+            }
+        }
+    }
+
+    @Test
+    public void testEasyPoi(){
+        try {
+            ImportParams params = new ImportParams();
+            params.setSheetNum(2);
+            params.setStartSheetIndex(0);
+            List<Map<String,Object>> list = ExcelImportUtil.importExcel(new File("/Users/mac/Documents/图片.xlsx"),Map.class,params);
+            System.out.println("1");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
 
 }

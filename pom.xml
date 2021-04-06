@@ -49,11 +49,11 @@
         </dependency>
 
 
-        <dependency>
-            <groupId>cglib</groupId>
-            <artifactId>cglib</artifactId>
-            <version>2.1</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>cglib</groupId>-->
+<!--            <artifactId>cglib</artifactId>-->
+<!--            <version>2.2</version>-->
+<!--        </dependency>-->
 
         <!--<dependency>-->
         <!--<groupId>org.springframework</groupId>-->
@@ -133,16 +133,16 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi</artifactId>
-            <version>3.10-FINAL</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.apache.poi</groupId>-->
+<!--            <artifactId>poi</artifactId>-->
+<!--            <version>3.10-FINAL</version>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
-            <version>3.10-FINAL</version>
+            <version>4.1.2</version>
         </dependency>
 
         <dependency>
@@ -243,11 +243,24 @@
             <version>0.9.1</version>
         </dependency>
 
+<!--        <dependency>-->
+<!--            <groupId>edu.uci.ics</groupId>-->
+<!--            <artifactId>crawler4j</artifactId>-->
+<!--            <version>4.3</version>-->
+<!--        </dependency>-->
+
         <dependency>
-            <groupId>edu.uci.ics</groupId>
-            <artifactId>crawler4j</artifactId>
-            <version>4.3</version>
+            <groupId>com.alibaba</groupId>
+            <artifactId>easyexcel</artifactId>
+            <version>2.2.7</version>
         </dependency>
+
+        <dependency>
+            <groupId>cn.afterturn</groupId>
+            <artifactId>easypoi-spring-boot-starter</artifactId>
+            <version>4.1.0</version>
+        </dependency>
+
 
     </dependencies>
 
