@@ -1050,7 +1050,7 @@ public class TestApplicationTests {
         ApplicationContext applicationContext = SpringContextUtil.getApplicationContext();
         AsyncService asyncService = (AsyncService) SpringContextUtil.getBean("dasdsa");
 //        AsyncService asyncService1 = (AsyncService) SpringContextUtil.getBean("asyncServiceImpl");
-        TestController testController =  (TestController) SpringContextUtil.getBean("testController");
+        TestController testController = (TestController) SpringContextUtil.getBean("testController");
         System.out.println("sdadas");
 //        System.out.println(asyncService == asyncService1);
 
@@ -1061,32 +1061,31 @@ public class TestApplicationTests {
      * 测试SpringAop机制
      * 获取testController bean，可以发现该bean是一个代理类,且代理类型为cglib动态代理
      * 实验:1.将testController实现一接口,观察代理类型
-     *     结果:还是cglib动态代理,和设想的(jdk动态代理不一样,待后续考证)
-     *     2.将AOP配置类limitAspect和LockAspect注释掉,观察bean类型
-     *     结果:发现此时bean类型是普通的bean,而非代理类
+     * 结果:还是cglib动态代理,和设想的(jdk动态代理不一样,待后续考证)
+     * 2.将AOP配置类limitAspect和LockAspect注释掉,观察bean类型
+     * 结果:发现此时bean类型是普通的bean,而非代理类
      * 调试原理:
-     *    断点：
-     *    1.AbstractAutowireCapableBeanFactory.doCreateBean(533) populateBean()此时观察bean对象类型
-     *    发现此时还是正常的bean类型,执行下一步initializeBean,观察方法过后bean对象为代理对象,表明该方法对bean对象
-     *    生成了代理对象,跳入该方法
-     *    2.initializeBean(1633) applyBeanPostProcessorsAfterInitialization()该方法生成代理类,该方法内部实现
-     *    遍历beanProcessor对象bean对象做后置处理,观察发现起作用processor为AnnotationAwareAspectJAutoProxyCreator
-     *    3.AbstractAutoProxyCreator.postProcessAfterInitialization(298) wrapIfNecessary 该方法即为核心方法
-     *    4.AbstractAutoProxyCreator.wrapIfNecessary(346) getAdvicesAndAdvisorsForBean,从该方法可获得
-     *    AdvicesAndAdvisors数组(数组内容即切面的切点和切面方法封装)。获取的大致实现原理:获取系统内所有带有@Aspect的注解类
-     *    根据切点和当前类对象获取符合该类对象的切点.findAdvisorsThatCanApply()
-     *    5.AbstractAutoProxyCreator.wrapIfNecessary(346) createProxy,根据方法名可以看出创建代理对象就在该方法中
-     *    查看该方法:选取代理类,核心方法DefaultAopProxyFactory.createAopProxy,当前方法即为判断选取jdk或者cglib代理
-     *    选取条件:createProxy 有 2 种创建方法，JDK 代理或 CGLIB
-     *           如果设置了 proxyTargetClass=true，一定是 CGLIB 代理
-     *           如果 proxyTargetClass=false，目标对象实现了接口，走 JDK 代理
-     *           如果没有实现接口，走 CGLIB 代理
-     *    选取代理类后创建代理对象,大致流程即如上
-     *
-     *    解释上文：testController实现接口还是走cglib,观察发现若只是单纯实现接口,接口没方法,创建代理对象是判断条件
-     *    config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config) 结果都为true,此时走cglib代理
-     *    若实现接口并重写其方法内某一方法,上述判断条件都为false,此时走的就是jdk动态代理.至于原因暂未得知.
-     *
+     * 断点：
+     * 1.AbstractAutowireCapableBeanFactory.doCreateBean(533) populateBean()此时观察bean对象类型
+     * 发现此时还是正常的bean类型,执行下一步initializeBean,观察方法过后bean对象为代理对象,表明该方法对bean对象
+     * 生成了代理对象,跳入该方法
+     * 2.initializeBean(1633) applyBeanPostProcessorsAfterInitialization()该方法生成代理类,该方法内部实现
+     * 遍历beanProcessor对象bean对象做后置处理,观察发现起作用processor为AnnotationAwareAspectJAutoProxyCreator
+     * 3.AbstractAutoProxyCreator.postProcessAfterInitialization(298) wrapIfNecessary 该方法即为核心方法
+     * 4.AbstractAutoProxyCreator.wrapIfNecessary(346) getAdvicesAndAdvisorsForBean,从该方法可获得
+     * AdvicesAndAdvisors数组(数组内容即切面的切点和切面方法封装)。获取的大致实现原理:获取系统内所有带有@Aspect的注解类
+     * 根据切点和当前类对象获取符合该类对象的切点.findAdvisorsThatCanApply()
+     * 5.AbstractAutoProxyCreator.wrapIfNecessary(346) createProxy,根据方法名可以看出创建代理对象就在该方法中
+     * 查看该方法:选取代理类,核心方法DefaultAopProxyFactory.createAopProxy,当前方法即为判断选取jdk或者cglib代理
+     * 选取条件:createProxy 有 2 种创建方法，JDK 代理或 CGLIB
+     * 如果设置了 proxyTargetClass=true，一定是 CGLIB 代理
+     * 如果 proxyTargetClass=false，目标对象实现了接口，走 JDK 代理
+     * 如果没有实现接口，走 CGLIB 代理
+     * 选取代理类后创建代理对象,大致流程即如上
+     * <p>
+     * 解释上文：testController实现接口还是走cglib,观察发现若只是单纯实现接口,接口没方法,创建代理对象是判断条件
+     * config.isProxyTargetClass() || hasNoUserSuppliedProxyInterfaces(config) 结果都为true,此时走cglib代理
+     * 若实现接口并重写其方法内某一方法,上述判断条件都为false,此时走的就是jdk动态代理.至于原因暂未得知.
      */
     @Test
     public void testSpringAop() {
@@ -1098,11 +1097,9 @@ public class TestApplicationTests {
 
     /**
      * 测试Spring事务机制
-     *
-     *
      */
     @Test
-    public void testSpringTransaction(){
+    public void testSpringTransaction() {
 
     }
 
@@ -1669,15 +1666,15 @@ public class TestApplicationTests {
         couponsDataVO.setCode("aa");
         couponsDataVO.setCodePass("bbb");
         String token = jwtTokenUtil.generateToken(couponsDataVO);
-        CouponsDataVO couponsDataVO1 = jwtTokenUtil.getClaimsFromToken(token,CouponsDataVO.class);
+        CouponsDataVO couponsDataVO1 = jwtTokenUtil.getClaimsFromToken(token, CouponsDataVO.class);
         System.out.println(couponsDataVO1);
     }
 
     @Test
     public void testReference() {
         String a = "a";
-        String b= a;
-        a="c";
+        String b = a;
+        a = "c";
         System.out.println(b);
     }
 
@@ -1732,15 +1729,15 @@ public class TestApplicationTests {
 //    }
 
     @Test
-    public void testStringWarp(){
+    public void testStringWarp() {
         String str = "sdas";
-        System.out.println(org.apache.commons.lang3.StringUtils.wrap(str,"{}"));
+        System.out.println(org.apache.commons.lang3.StringUtils.wrap(str, "{}"));
     }
 
     @Test
-    public void testDateUtil(){
+    public void testDateUtil() {
 
-        byte[] b=  {-2, -101, -128, -27, -73, -94};
+        byte[] b = {-2, -101, -128, -27, -73, -94};
         String s = new String(b);
         System.out.println(s);
     }
@@ -1758,10 +1755,10 @@ public class TestApplicationTests {
 //    }
 
     @Test
-    public void testHutoolExcel(){
+    public void testHutoolExcel() {
         File file = new File("/Users/mac/Documents/图片.xlsx");
         ExcelReader reader = ExcelUtil.getReader(file, 1);
-        List<Map<String,Object>> maps = reader.readAll();
+        List<Map<String, Object>> maps = reader.readAll();
         Workbook workbook = reader.getWorkbook();
         XSSFSheet sheet = (XSSFSheet) workbook.getSheetAt(1);
 
@@ -1778,12 +1775,12 @@ public class TestApplicationTests {
     }
 
     @Test
-    public void testEasyPoi(){
+    public void testEasyPoi() {
         try {
             ImportParams params = new ImportParams();
             params.setSheetNum(2);
             params.setStartSheetIndex(0);
-            List<Map<String,Object>> list = ExcelImportUtil.importExcel(new File("/Users/mac/Documents/图片.xlsx"),Map.class,params);
+            List<Map<String, Object>> list = ExcelImportUtil.importExcel(new File("/Users/mac/Documents/图片.xlsx"), Map.class, params);
             System.out.println("1");
         } catch (Exception e) {
             e.printStackTrace();
