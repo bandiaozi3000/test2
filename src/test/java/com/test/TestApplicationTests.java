@@ -2,6 +2,7 @@ package com.test;
 
 import cn.afterturn.easypoi.excel.ExcelImportUtil;
 import cn.afterturn.easypoi.excel.entity.ImportParams;
+import cn.afterturn.easypoi.excel.entity.result.ExcelImportResult;
 import cn.afterturn.easypoi.util.PoiPublicUtil;
 import cn.hutool.poi.excel.ExcelReader;
 import cn.hutool.poi.excel.ExcelUtil;
@@ -37,6 +38,7 @@ import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import org.apache.commons.lang3.time.DateUtils;
 import org.apache.poi.ss.extractor.ExcelExtractor;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
 import org.apache.poi.xssf.usermodel.XSSFPicture;
@@ -1778,10 +1780,34 @@ public class TestApplicationTests {
     public void testEasyPoi() {
         try {
             ImportParams params = new ImportParams();
-            params.setSheetNum(2);
+            params.setNeedSave(true);
             params.setStartSheetIndex(0);
-            List<Map<String, Object>> list = ExcelImportUtil.importExcel(new File("/Users/mac/Documents/图片.xlsx"), Map.class, params);
-            System.out.println("1");
+            params.setSheetNum(0);
+            params.setSaveUrl("/Users/mac/Documents/excel");
+            ExcelImportResult<CompanyHasImgModel> importResult = ExcelImportUtil.importExcelMore(new File("/Users/mac/Downloads/imgexcel.xls"), CompanyHasImgModel.class, params);
+            int sheets = importResult.getWorkbook().getNumberOfSheets();
+            for (int i = 0; i < sheets; i++) {
+                params.setNeedSave(false);
+                params.setStartSheetIndex(i);
+                params.setSheetNum(1);
+                List<CompanyHasImgModel> result = ExcelImportUtil.importExcel(
+                        new File("/Users/mac/Downloads/imgexcel.xls"),
+                        CompanyHasImgModel.class, params);
+                Sheet sheet = importResult.getWorkbook().getSheetAt(i);
+                String sheetName = sheet.getSheetName();
+                System.out.println("Sheet页的名字==============:" + sheetName);
+                System.out.println("读取出的内容：");
+                for (int k = 0; k < result.size(); k++) {
+                    System.out.println(ReflectionToStringBuilder.toString(result.get(i)));
+                }
+            }
+            String saveUrl = params.getSaveUrl();
+            final String FILE_SEPARATOR = System.getProperties().getProperty("file.separator");
+            String imgPath = saveUrl+FILE_SEPARATOR+"img";
+            System.out.println("saveUrl============="+saveUrl);
+            System.out.println("imgPat============="+imgPath);
+
+//            importResult
         } catch (Exception e) {
             e.printStackTrace();
         }
