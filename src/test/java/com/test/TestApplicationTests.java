@@ -27,7 +27,7 @@ import com.test.filter.MyValueFilter;
 import com.test.filter.ProperFilter;
 import com.test.method.MyTestMethod;
 import com.test.service.AsyncService;
-import com.test.service.HystrixService;
+//import com.test.service.HystrixService;
 import com.test.service.MailService;
 import com.test.service.TestInterface;
 import com.test.service.impl.TestInterfaceImpl;
@@ -99,8 +99,8 @@ public class TestApplicationTests {
     @Autowired
     MyTestMethod myTestMethod;
 
-    @Autowired
-    HystrixService hystrixService;
+//    @Autowired
+//    HystrixService hystrixService;
 
     @Autowired
     private TestInterface testInterface;
@@ -188,16 +188,16 @@ public class TestApplicationTests {
         System.out.println(new String(a));
     }
 
-    @Test
-    public void testHystrix() throws Exception {
-        for (int i = 0; i < 10; i++) {
-            System.out.println(hystrixService.print(1));
-        }
-        Thread.sleep(20000);
-        for (int i = 0; i < 10; i++) {
-            System.out.println(hystrixService.print(2));
-        }
-    }
+//    @Test
+//    public void testHystrix() throws Exception {
+//        for (int i = 0; i < 10; i++) {
+//            System.out.println(hystrixService.print(1));
+//        }
+//        Thread.sleep(20000);
+//        for (int i = 0; i < 10; i++) {
+//            System.out.println(hystrixService.print(2));
+//        }
+//    }
 
     @Test
     public void testIp() throws UnsupportedEncodingException {
@@ -1817,5 +1817,6 @@ public class TestApplicationTests {
     public void testListBeanAutowire(){
         applicationContext.getBean("listBean");
     }
+
 
 }

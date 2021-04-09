@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: test-application
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+        namespace: 0574b38c-2dd1-4999-a09a-3468af14e679
+        metadata:
+          group: DEFAULT_GROUP
+          version: 1.0
+          region: dev
+      config:
+        file-extension: yaml
+        server-addr: 127.0.0.1:8848
+        namespace: 0574b38c-2dd1-4999-a09a-3468af14e679
