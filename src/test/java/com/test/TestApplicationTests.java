@@ -1811,7 +1811,11 @@ public class TestApplicationTests {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
 
+    @Test
+    public void testListBeanAutowire(){
+        applicationContext.getBean("listBean");
     }
 
 }
